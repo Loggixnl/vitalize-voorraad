@@ -189,3 +189,127 @@ export function exportWithFormatting(data, filename = 'besteladvies.xlsx') {
 
   XLSX.writeFile(workbook, filename)
 }
+
+/**
+ * Exporteer naar PDF
+ * @param {Object} data - { producten: Array, componenten: Array }
+ * @param {string} filename - Bestandsnaam
+ */
+export async function exportToPdf(data, filename = 'besteladvies.pdf') {
+  const { jsPDF } = await import('jspdf')
+  await import('jspdf-autotable')
+
+  const doc = new jsPDF('landscape', 'mm', 'a4')
+
+  // Titel
+  doc.setFontSize(18)
+  doc.text('Vitalize Voorraad Besteladvies', 14, 15)
+
+  // Datum
+  doc.setFontSize(10)
+  doc.text(`Gegenereerd: ${new Date().toLocaleDateString('nl-NL')}`, 14, 22)
+
+  // Samenvatting
+  const urgentProducten = data.producten.filter(p => p.is_urgent)
+  const urgentComponenten = data.componenten.filter(c => c.is_urgent)
+
+  doc.setFontSize(11)
+  doc.text(`Urgente producten: ${urgentProducten.length} van ${data.producten.length}`, 14, 30)
+  doc.text(`Urgente componenten: ${urgentComponenten.length} van ${data.componenten.length}`, 14, 36)
+
+  // Producten tabel
+  doc.setFontSize(14)
+  doc.text('Producten - Te bestellen', 14, 48)
+
+  const productenData = urgentProducten.map(p => [
+    p.Artnr,
+    p.Variant_name?.substring(0, 40) || '',
+    Math.round(p._currentCount),
+    Math.round(p._avgSalesPerMonth),
+    p.levertermijn,
+    p.days_of_stock === 9999 ? '∞' : Math.round(p.days_of_stock),
+    p.bestellen_stuks,
+    p.urgentie
+  ])
+
+  doc.autoTable({
+    startY: 52,
+    head: [['Artnr', 'Productnaam', 'Voorraad', 'Verkoop/mnd', 'Levertijd', 'Dagen', 'Bestellen', 'Urgentie']],
+    body: productenData,
+    styles: { fontSize: 8, cellPadding: 1.5 },
+    headStyles: { fillColor: [66, 66, 66] },
+    columnStyles: {
+      0: { cellWidth: 25 },
+      1: { cellWidth: 60 },
+      2: { halign: 'right', cellWidth: 20 },
+      3: { halign: 'right', cellWidth: 25 },
+      4: { halign: 'right', cellWidth: 20 },
+      5: { halign: 'right', cellWidth: 18 },
+      6: { halign: 'right', cellWidth: 22, fontStyle: 'bold' },
+      7: { cellWidth: 28 }
+    },
+    didParseCell: function(data) {
+      if (data.section === 'body') {
+        const urgentie = productenData[data.row.index]?.[7]
+        if (urgentie === 'DIRECT') {
+          data.cell.styles.fillColor = [250, 219, 216]
+        } else if (urgentie === 'DEZE WEEK') {
+          data.cell.styles.fillColor = [253, 235, 208]
+        } else if (urgentie === 'BINNEN 2 WKN') {
+          data.cell.styles.fillColor = [254, 249, 231]
+        }
+      }
+    }
+  })
+
+  // Nieuwe pagina voor componenten
+  doc.addPage()
+
+  doc.setFontSize(14)
+  doc.text('Componenten - Te bestellen', 14, 15)
+
+  const componentenData = urgentComponenten.map(c => [
+    c.Artnr,
+    c.Variant_name?.substring(0, 35) || '',
+    Math.round(c._currentCount),
+    Math.round(c.component_per_day),
+    c.levertermijn,
+    c.days_of_stock === 9999 ? '∞' : Math.round(c.days_of_stock),
+    c.bestellen_stuks,
+    c.product_names?.substring(0, 40) || '',
+    c.urgentie
+  ])
+
+  doc.autoTable({
+    startY: 20,
+    head: [['Artnr', 'Component', 'Voorraad', 'Verbr/dag', 'Levertijd', 'Dagen', 'Bestellen', 'Gebruikt in', 'Urgentie']],
+    body: componentenData,
+    styles: { fontSize: 7, cellPadding: 1.5 },
+    headStyles: { fillColor: [66, 66, 66] },
+    columnStyles: {
+      0: { cellWidth: 22 },
+      1: { cellWidth: 45 },
+      2: { halign: 'right', cellWidth: 18 },
+      3: { halign: 'right', cellWidth: 18 },
+      4: { halign: 'right', cellWidth: 18 },
+      5: { halign: 'right', cellWidth: 15 },
+      6: { halign: 'right', cellWidth: 20, fontStyle: 'bold' },
+      7: { cellWidth: 55 },
+      8: { cellWidth: 25 }
+    },
+    didParseCell: function(data) {
+      if (data.section === 'body') {
+        const urgentie = componentenData[data.row.index]?.[8]
+        if (urgentie === 'DIRECT') {
+          data.cell.styles.fillColor = [250, 219, 216]
+        } else if (urgentie === 'DEZE WEEK') {
+          data.cell.styles.fillColor = [253, 235, 208]
+        } else if (urgentie === 'BINNEN 2 WKN') {
+          data.cell.styles.fillColor = [254, 249, 231]
+        }
+      }
+    }
+  })
+
+  doc.save(filename)
+}
