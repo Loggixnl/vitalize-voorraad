@@ -100,6 +100,17 @@ function getRowStyle(urgentieColor) {
   if (!urgentieColor) return {}
   return { backgroundColor: urgentieColor }
 }
+
+// Parse product names voor "Gebruikt in" kolom
+function parseProductNames(productNamesString) {
+  if (!productNamesString) return { visible: [], hidden: [], total: 0 }
+  const names = productNamesString.split(', ').filter(n => n.trim())
+  return {
+    visible: names.slice(0, 4),
+    hidden: names.slice(4),
+    total: names.length
+  }
+}
 </script>
 
 <template>
@@ -244,7 +255,7 @@ function getRowStyle(urgentieColor) {
                   <td class="px-4 py-2 font-mono text-xs">{{ product.Artnr }}</td>
                   <td class="px-4 py-2">{{ product.Variant_name }}</td>
                   <td class="px-4 py-2 text-right">{{ formatNumber(product._currentCount) }}</td>
-                  <td class="px-4 py-2 text-right">{{ formatNumber(product._avgSalesPerMonth, 1) }}</td>
+                  <td class="px-4 py-2 text-right">{{ formatNumber(product._avgSalesPerMonth) }}</td>
                   <td class="px-4 py-2 text-right">{{ product.levertermijn }} d</td>
                   <td class="px-4 py-2 text-right font-medium">{{ formatNumber(product.days_of_stock) }}</td>
                   <td class="px-4 py-2 text-right font-bold">{{ formatNumber(product.bestellen_stuks) }}</td>
@@ -321,12 +332,36 @@ function getRowStyle(urgentieColor) {
                   <td class="px-4 py-2 font-mono text-xs">{{ component.Artnr }}</td>
                   <td class="px-4 py-2">{{ component.Variant_name }}</td>
                   <td class="px-4 py-2 text-right">{{ formatNumber(component._currentCount) }}</td>
-                  <td class="px-4 py-2 text-right">{{ formatNumber(component.component_per_day, 2) }}</td>
+                  <td class="px-4 py-2 text-right">{{ formatNumber(component.component_per_day) }}</td>
                   <td class="px-4 py-2 text-right">{{ component.levertermijn }} d</td>
                   <td class="px-4 py-2 text-right font-medium">{{ formatNumber(component.days_of_stock) }}</td>
                   <td class="px-4 py-2 text-right font-bold">{{ formatNumber(component.bestellen_stuks) }}</td>
-                  <td class="px-4 py-2 text-xs max-w-xs truncate" :title="component.product_names">
-                    {{ component.product_names }}
+                  <td class="px-4 py-2 text-xs max-w-xs">
+                    <div class="flex flex-col gap-0.5">
+                      <div
+                        v-for="(name, idx) in parseProductNames(component.product_names).visible"
+                        :key="idx"
+                        class="truncate"
+                      >
+                        {{ name }}
+                      </div>
+                      <div
+                        v-if="parseProductNames(component.product_names).hidden.length > 0"
+                        class="relative group"
+                      >
+                        <span class="text-blue-600 cursor-pointer hover:underline">
+                          +{{ parseProductNames(component.product_names).hidden.length }} meer...
+                        </span>
+                        <div class="absolute z-50 left-0 bottom-full mb-1 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg min-w-64 max-w-sm">
+                          <div class="font-medium mb-2">Alle producten ({{ parseProductNames(component.product_names).total }}):</div>
+                          <div class="flex flex-col gap-1 max-h-48 overflow-y-auto">
+                            <div v-for="(name, idx) in parseProductNames(component.product_names).visible.concat(parseProductNames(component.product_names).hidden)" :key="idx">
+                              {{ name }}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </td>
                   <td class="px-4 py-2 text-center">
                     <span class="text-xs font-medium">{{ component.urgentie }}</span>
