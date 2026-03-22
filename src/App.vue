@@ -107,7 +107,7 @@ function getRowStyle(urgentieColor) {
     <!-- Header -->
     <header class="bg-white shadow-sm">
       <div class="max-w-7xl mx-auto px-4 py-4">
-        <h1 class="text-2xl font-bold text-gray-900">Besteladvies Voorraad</h1>
+        <h1 class="text-2xl font-bold text-gray-900">Vitalize Voorraad Besteladvies</h1>
         <p class="text-gray-600 text-sm">Upload Excel bestanden om inkoopadvies te genereren</p>
       </div>
     </header>
