@@ -203,8 +203,8 @@ function parseProductNames(productNamesString) {
         </section>
 
         <!-- Producten tabel -->
-        <section class="bg-white rounded-lg shadow mb-6 overflow-hidden">
-          <div class="p-4 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <section class="bg-white rounded-lg shadow mb-6">
+          <div class="sticky top-0 z-20 bg-white rounded-t-lg border-b p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <h2 class="text-lg font-semibold">
               Producten - Te bestellen
               <span class="text-gray-500 font-normal">
@@ -233,17 +233,17 @@ function parseProductNames(productNamesString) {
             </div>
           </div>
           <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead class="bg-gray-50">
+            <table class="w-full text-xs">
+              <thead class="bg-gray-50 sticky top-[73px] z-10">
                 <tr>
-                  <th class="px-4 py-3 text-left font-medium text-gray-600">Artnr</th>
+                  <th class="px-4 py-2 text-left font-medium text-gray-600">Artnr</th>
                   <th class="px-4 py-3 text-left font-medium text-gray-600">Productnaam</th>
-                  <th class="px-4 py-3 text-right font-medium text-gray-600">Voorraad</th>
-                  <th class="px-4 py-3 text-right font-medium text-gray-600">Verkoop/mnd</th>
-                  <th class="px-4 py-3 text-right font-medium text-gray-600">Levertermijn</th>
-                  <th class="px-4 py-3 text-right font-medium text-gray-600">Dagen voorraad</th>
-                  <th class="px-4 py-3 text-right font-medium text-gray-600">Te bestellen</th>
-                  <th class="px-4 py-3 text-center font-medium text-gray-600">Urgentie</th>
+                  <th class="px-4 py-2 text-right font-medium text-gray-600">Voorraad</th>
+                  <th class="px-4 py-2 text-right font-medium text-gray-600">Verkoop/mnd</th>
+                  <th class="px-4 py-2 text-right font-medium text-gray-600">Levertermijn</th>
+                  <th class="px-4 py-2 text-right font-medium text-gray-600">Dagen voorraad</th>
+                  <th class="px-4 py-2 text-right font-medium text-gray-600">Te bestellen</th>
+                  <th class="px-4 py-2 text-center font-medium text-gray-600">Urgentie</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-200">
@@ -252,15 +252,15 @@ function parseProductNames(productNamesString) {
                   :key="product.ID_Source"
                   :style="getRowStyle(product.urgentie_color)"
                 >
-                  <td class="px-4 py-2 font-mono text-xs">{{ product.Artnr }}</td>
-                  <td class="px-4 py-2">{{ product.Variant_name }}</td>
-                  <td class="px-4 py-2 text-right">{{ formatNumber(product._currentCount) }}</td>
-                  <td class="px-4 py-2 text-right">{{ formatNumber(product._avgSalesPerMonth) }}</td>
-                  <td class="px-4 py-2 text-right">{{ product.levertermijn }} d</td>
-                  <td class="px-4 py-2 text-right font-medium">{{ formatNumber(product.days_of_stock) }}</td>
-                  <td class="px-4 py-2 text-right font-bold">{{ formatNumber(product.bestellen_stuks) }}</td>
-                  <td class="px-4 py-2 text-center">
-                    <span class="text-xs font-medium">{{ product.urgentie }}</span>
+                  <td class="px-4 py-1.5 font-mono">{{ product.Artnr }}</td>
+                  <td class="px-4 py-1.5">{{ product.Variant_name }}</td>
+                  <td class="px-4 py-1.5 text-right">{{ formatNumber(product._currentCount) }}</td>
+                  <td class="px-4 py-1.5 text-right">{{ formatNumber(product._avgSalesPerMonth) }}</td>
+                  <td class="px-4 py-1.5 text-right">{{ product.levertermijn }} d</td>
+                  <td class="px-4 py-1.5 text-right font-medium">{{ formatNumber(product.days_of_stock) }}</td>
+                  <td class="px-4 py-1.5 text-right font-bold">{{ formatNumber(product.bestellen_stuks) }}</td>
+                  <td class="px-4 py-1.5 text-center">
+                    <span class="font-medium">{{ product.urgentie }}</span>
                   </td>
                 </tr>
                 <tr v-if="gefilterdeProducten.length === 0">
@@ -279,8 +279,8 @@ function parseProductNames(productNamesString) {
         </section>
 
         <!-- Componenten tabel -->
-        <section class="bg-white rounded-lg shadow overflow-hidden">
-          <div class="p-4 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <section class="bg-white rounded-lg shadow">
+          <div class="sticky top-0 z-20 bg-white rounded-t-lg border-b p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <h2 class="text-lg font-semibold">
               Componenten - Te bestellen
               <span class="text-gray-500 font-normal">
@@ -309,18 +309,18 @@ function parseProductNames(productNamesString) {
             </div>
           </div>
           <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead class="bg-gray-50">
+            <table class="w-full text-xs">
+              <thead class="bg-gray-50 sticky top-[73px] z-10">
                 <tr>
-                  <th class="px-4 py-3 text-left font-medium text-gray-600">Artnr</th>
-                  <th class="px-4 py-3 text-left font-medium text-gray-600">Component</th>
-                  <th class="px-4 py-3 text-right font-medium text-gray-600">Voorraad</th>
-                  <th class="px-4 py-3 text-right font-medium text-gray-600">Verbruik/dag</th>
-                  <th class="px-4 py-3 text-right font-medium text-gray-600">Levertermijn</th>
-                  <th class="px-4 py-3 text-right font-medium text-gray-600">Dagen voorraad</th>
-                  <th class="px-4 py-3 text-right font-medium text-gray-600">Te bestellen</th>
-                  <th class="px-4 py-3 text-left font-medium text-gray-600">Gebruikt in</th>
-                  <th class="px-4 py-3 text-center font-medium text-gray-600">Urgentie</th>
+                  <th class="px-4 py-2 text-left font-medium text-gray-600">Artnr</th>
+                  <th class="px-4 py-2 text-left font-medium text-gray-600">Component</th>
+                  <th class="px-4 py-2 text-right font-medium text-gray-600">Voorraad</th>
+                  <th class="px-4 py-2 text-right font-medium text-gray-600">Verbruik/dag</th>
+                  <th class="px-4 py-2 text-right font-medium text-gray-600">Levertermijn</th>
+                  <th class="px-4 py-2 text-right font-medium text-gray-600">Dagen voorraad</th>
+                  <th class="px-4 py-2 text-right font-medium text-gray-600">Te bestellen</th>
+                  <th class="px-4 py-2 text-left font-medium text-gray-600">Gebruikt in</th>
+                  <th class="px-4 py-2 text-center font-medium text-gray-600">Urgentie</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-200">
@@ -329,14 +329,14 @@ function parseProductNames(productNamesString) {
                   :key="component.ID_Source"
                   :style="getRowStyle(component.urgentie_color)"
                 >
-                  <td class="px-4 py-2 font-mono text-xs">{{ component.Artnr }}</td>
-                  <td class="px-4 py-2">{{ component.Variant_name }}</td>
-                  <td class="px-4 py-2 text-right">{{ formatNumber(component._currentCount) }}</td>
-                  <td class="px-4 py-2 text-right">{{ formatNumber(component.component_per_day) }}</td>
-                  <td class="px-4 py-2 text-right">{{ component.levertermijn }} d</td>
-                  <td class="px-4 py-2 text-right font-medium">{{ formatNumber(component.days_of_stock) }}</td>
-                  <td class="px-4 py-2 text-right font-bold">{{ formatNumber(component.bestellen_stuks) }}</td>
-                  <td class="px-4 py-2 text-xs max-w-xs">
+                  <td class="px-4 py-1.5 font-mono">{{ component.Artnr }}</td>
+                  <td class="px-4 py-1.5">{{ component.Variant_name }}</td>
+                  <td class="px-4 py-1.5 text-right">{{ formatNumber(component._currentCount) }}</td>
+                  <td class="px-4 py-1.5 text-right">{{ formatNumber(component.component_per_day) }}</td>
+                  <td class="px-4 py-1.5 text-right">{{ component.levertermijn }} d</td>
+                  <td class="px-4 py-1.5 text-right font-medium">{{ formatNumber(component.days_of_stock) }}</td>
+                  <td class="px-4 py-1.5 text-right font-bold">{{ formatNumber(component.bestellen_stuks) }}</td>
+                  <td class="px-4 py-1.5 max-w-xs">
                     <div class="flex flex-col gap-0.5">
                       <div
                         v-for="(name, idx) in parseProductNames(component.product_names).visible"
@@ -363,8 +363,8 @@ function parseProductNames(productNamesString) {
                       </div>
                     </div>
                   </td>
-                  <td class="px-4 py-2 text-center">
-                    <span class="text-xs font-medium">{{ component.urgentie }}</span>
+                  <td class="px-4 py-1.5 text-center">
+                    <span class="font-medium">{{ component.urgentie }}</span>
                   </td>
                 </tr>
                 <tr v-if="gefilterdeComponenten.length === 0">
