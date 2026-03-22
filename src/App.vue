@@ -12,6 +12,10 @@ const bufferDagen = ref(60)
 const searchProducten = ref('')
 const searchComponenten = ref('')
 
+// Leverancier filters
+const filterLeverancierProducten = ref('')
+const filterLeverancierComponenten = ref('')
+
 // Ruwe data uit Excel
 const rawData = ref(null)
 
@@ -28,32 +32,67 @@ const urgenteComponenten = computed(() => {
   return sortByUrgency(filterUrgent(componentenResults.value))
 })
 
-// Gefilterde items op basis van zoekterm
-const gefilterdeProducten = computed(() => {
-  const query = searchProducten.value.toLowerCase().trim()
-  if (!query) return urgenteProducten.value
+// Unieke leveranciers voor filter dropdowns
+const leveranciersProducten = computed(() => {
+  const names = urgenteProducten.value
+    .map(p => p.Leveranciersnaam)
+    .filter(name => name && name.trim())
+  return [...new Set(names)].sort()
+})
 
-  return urgenteProducten.value.filter(p =>
-    p.Artnr?.toLowerCase().includes(query) ||
-    p.Variant_name?.toLowerCase().includes(query) ||
-    p.Leveranciersnaam?.toLowerCase().includes(query) ||
-    p.Productgroup?.toLowerCase().includes(query) ||
-    p.urgentie?.toLowerCase().includes(query)
-  )
+const leveranciersComponenten = computed(() => {
+  const names = urgenteComponenten.value
+    .map(c => c.Leveranciersnaam)
+    .filter(name => name && name.trim())
+  return [...new Set(names)].sort()
+})
+
+// Gefilterde items op basis van zoekterm en leverancier
+const gefilterdeProducten = computed(() => {
+  let result = urgenteProducten.value
+
+  // Filter op leverancier
+  if (filterLeverancierProducten.value) {
+    result = result.filter(p => p.Leveranciersnaam === filterLeverancierProducten.value)
+  }
+
+  // Filter op zoekterm
+  const query = searchProducten.value.toLowerCase().trim()
+  if (query) {
+    result = result.filter(p =>
+      p.Artnr?.toLowerCase().includes(query) ||
+      p.Variant_name?.toLowerCase().includes(query) ||
+      p.Leveranciersnaam?.toLowerCase().includes(query) ||
+      p.Productgroup?.toLowerCase().includes(query) ||
+      p.urgentie?.toLowerCase().includes(query)
+    )
+  }
+
+  return result
 })
 
 const gefilterdeComponenten = computed(() => {
-  const query = searchComponenten.value.toLowerCase().trim()
-  if (!query) return urgenteComponenten.value
+  let result = urgenteComponenten.value
 
-  return urgenteComponenten.value.filter(c =>
-    c.Artnr?.toLowerCase().includes(query) ||
-    c.Variant_name?.toLowerCase().includes(query) ||
-    c.Leveranciersnaam?.toLowerCase().includes(query) ||
-    c.Productgroup?.toLowerCase().includes(query) ||
-    c.product_names?.toLowerCase().includes(query) ||
-    c.urgentie?.toLowerCase().includes(query)
-  )
+  // Filter op leverancier
+  if (filterLeverancierComponenten.value) {
+    result = result.filter(c => c.Leveranciersnaam === filterLeverancierComponenten.value)
+  }
+
+  // Filter op zoekterm
+  const query = searchComponenten.value.toLowerCase().trim()
+  if (query) {
+    result = result.filter(c =>
+      c.Artnr?.toLowerCase().includes(query) ||
+      c.Variant_name?.toLowerCase().includes(query) ||
+      c.Leveranciersnaam?.toLowerCase().includes(query) ||
+      c.Productgroup?.toLowerCase().includes(query) ||
+      c.product_names?.toLowerCase().includes(query) ||
+      c.urgentie?.toLowerCase().includes(query)
+    )
+  }
+
+  return result
 })
 
 // Handle wanneer bestanden geladen zijn
@@ -267,28 +306,41 @@ async function handleExportPdf() {
             <h2 class="text-lg font-semibold">
               Producten - Te bestellen
               <span class="text-gray-500 font-normal">
-                ({{ gefilterdeProducten.length }}<span v-if="searchProducten"> van {{ urgenteProducten.length }}</span>)
+                ({{ gefilterdeProducten.length }}<span v-if="searchProducten || filterLeverancierProducten"> van {{ urgenteProducten.length }}</span>)
               </span>
             </h2>
-            <div class="relative">
-              <input
-                v-model="searchProducten"
-                type="text"
-                placeholder="Zoeken op artnr, naam..."
-                class="w-full sm:w-64 pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-              <svg class="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <button
-                v-if="searchProducten"
-                @click="searchProducten = ''"
-                class="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+            <div class="flex items-center gap-2">
+              <!-- Leverancier filter -->
+              <select
+                v-model="filterLeverancierProducten"
+                class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
               >
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                <option value="">Alle leveranciers</option>
+                <option v-for="lev in leveranciersProducten" :key="lev" :value="lev">
+                  {{ lev }}
+                </option>
+              </select>
+              <!-- Zoeken -->
+              <div class="relative">
+                <input
+                  v-model="searchProducten"
+                  type="text"
+                  placeholder="Zoeken..."
+                  class="w-full sm:w-48 pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <svg class="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-              </button>
+                <button
+                  v-if="searchProducten"
+                  @click="searchProducten = ''"
+                  class="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                >
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
           <div class="overflow-x-auto">
@@ -347,28 +399,41 @@ async function handleExportPdf() {
             <h2 class="text-lg font-semibold">
               Componenten - Te bestellen
               <span class="text-gray-500 font-normal">
-                ({{ gefilterdeComponenten.length }}<span v-if="searchComponenten"> van {{ urgenteComponenten.length }}</span>)
+                ({{ gefilterdeComponenten.length }}<span v-if="searchComponenten || filterLeverancierComponenten"> van {{ urgenteComponenten.length }}</span>)
               </span>
             </h2>
-            <div class="relative">
-              <input
-                v-model="searchComponenten"
-                type="text"
-                placeholder="Zoeken op artnr, naam, product..."
-                class="w-full sm:w-64 pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-              <svg class="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <button
-                v-if="searchComponenten"
-                @click="searchComponenten = ''"
-                class="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+            <div class="flex items-center gap-2">
+              <!-- Leverancier filter -->
+              <select
+                v-model="filterLeverancierComponenten"
+                class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
               >
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                <option value="">Alle leveranciers</option>
+                <option v-for="lev in leveranciersComponenten" :key="lev" :value="lev">
+                  {{ lev }}
+                </option>
+              </select>
+              <!-- Zoeken -->
+              <div class="relative">
+                <input
+                  v-model="searchComponenten"
+                  type="text"
+                  placeholder="Zoeken..."
+                  class="w-full sm:w-48 pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <svg class="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-              </button>
+                <button
+                  v-if="searchComponenten"
+                  @click="searchComponenten = ''"
+                  class="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                >
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
           <div class="overflow-x-auto">
