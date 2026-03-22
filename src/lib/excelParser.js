@@ -160,8 +160,10 @@ export function exportWithFormatting(data, filename = 'besteladvies.xlsx') {
     .map(p => ({
       Artnr: p.Artnr,
       Productnaam: p.Variant_name,
+      Leverancier: p.Leveranciersnaam,
+      Productgroep: p.Productgroup,
       Voorraad: p._currentCount,
-      'Verkoop/maand': p._avgSalesPerMonth,
+      'Verkoop/maand': Math.round(p._avgSalesPerMonth),
       Levertermijn: p.levertermijn,
       'Dagen voorraad': Math.round(p.days_of_stock),
       'Te bestellen': p.bestellen_stuks,
@@ -176,8 +178,10 @@ export function exportWithFormatting(data, filename = 'besteladvies.xlsx') {
     .map(c => ({
       Artnr: c.Artnr,
       Component: c.Variant_name,
+      Leverancier: c.Leveranciersnaam,
+      Productgroep: c.Productgroup,
       Voorraad: c._currentCount,
-      'Verbruik/dag': Math.round(c.component_per_day * 100) / 100,
+      'Verbruik/dag': Math.round(c.component_per_day),
       Levertermijn: c.levertermijn,
       'Dagen voorraad': Math.round(c.days_of_stock),
       'Te bestellen': c.bestellen_stuks,
@@ -223,7 +227,9 @@ export async function exportToPdf(data, filename = 'besteladvies.pdf') {
 
   const productenData = urgentProducten.map(p => [
     p.Artnr,
-    p.Variant_name?.substring(0, 40) || '',
+    p.Variant_name?.substring(0, 35) || '',
+    p.Leveranciersnaam?.substring(0, 20) || '',
+    p.Productgroup?.substring(0, 15) || '',
     Math.round(p._currentCount),
     Math.round(p._avgSalesPerMonth),
     p.levertermijn,
@@ -234,23 +240,25 @@ export async function exportToPdf(data, filename = 'besteladvies.pdf') {
 
   doc.autoTable({
     startY: 52,
-    head: [['Artnr', 'Productnaam', 'Voorraad', 'Verkoop/mnd', 'Levertijd', 'Dagen', 'Bestellen', 'Urgentie']],
+    head: [['Artnr', 'Productnaam', 'Leverancier', 'Groep', 'Voorr.', 'Verk/m', 'Lev.', 'Dagen', 'Best.', 'Urgentie']],
     body: productenData,
-    styles: { fontSize: 8, cellPadding: 1.5 },
+    styles: { fontSize: 7, cellPadding: 1.5 },
     headStyles: { fillColor: [66, 66, 66] },
     columnStyles: {
-      0: { cellWidth: 25 },
-      1: { cellWidth: 60 },
-      2: { halign: 'right', cellWidth: 20 },
-      3: { halign: 'right', cellWidth: 25 },
-      4: { halign: 'right', cellWidth: 20 },
-      5: { halign: 'right', cellWidth: 18 },
-      6: { halign: 'right', cellWidth: 22, fontStyle: 'bold' },
-      7: { cellWidth: 28 }
+      0: { cellWidth: 20 },
+      1: { cellWidth: 50 },
+      2: { cellWidth: 30 },
+      3: { cellWidth: 25 },
+      4: { halign: 'right', cellWidth: 15 },
+      5: { halign: 'right', cellWidth: 15 },
+      6: { halign: 'right', cellWidth: 12 },
+      7: { halign: 'right', cellWidth: 15 },
+      8: { halign: 'right', cellWidth: 18, fontStyle: 'bold' },
+      9: { cellWidth: 25 }
     },
     didParseCell: function(data) {
       if (data.section === 'body') {
-        const urgentie = productenData[data.row.index]?.[7]
+        const urgentie = productenData[data.row.index]?.[9]
         if (urgentie === 'DIRECT') {
           data.cell.styles.fillColor = [250, 219, 216]
         } else if (urgentie === 'DEZE WEEK') {
@@ -270,36 +278,40 @@ export async function exportToPdf(data, filename = 'besteladvies.pdf') {
 
   const componentenData = urgentComponenten.map(c => [
     c.Artnr,
-    c.Variant_name?.substring(0, 35) || '',
+    c.Variant_name?.substring(0, 30) || '',
+    c.Leveranciersnaam?.substring(0, 18) || '',
+    c.Productgroup?.substring(0, 12) || '',
     Math.round(c._currentCount),
     Math.round(c.component_per_day),
     c.levertermijn,
     c.days_of_stock === 9999 ? '∞' : Math.round(c.days_of_stock),
     c.bestellen_stuks,
-    c.product_names?.substring(0, 40) || '',
+    c.product_names?.substring(0, 35) || '',
     c.urgentie
   ])
 
   doc.autoTable({
     startY: 20,
-    head: [['Artnr', 'Component', 'Voorraad', 'Verbr/dag', 'Levertijd', 'Dagen', 'Bestellen', 'Gebruikt in', 'Urgentie']],
+    head: [['Artnr', 'Component', 'Leverancier', 'Groep', 'Voorr.', 'Vbr/d', 'Lev.', 'Dag', 'Best.', 'Gebruikt in', 'Urg.']],
     body: componentenData,
-    styles: { fontSize: 7, cellPadding: 1.5 },
+    styles: { fontSize: 6, cellPadding: 1 },
     headStyles: { fillColor: [66, 66, 66] },
     columnStyles: {
-      0: { cellWidth: 22 },
-      1: { cellWidth: 45 },
-      2: { halign: 'right', cellWidth: 18 },
-      3: { halign: 'right', cellWidth: 18 },
-      4: { halign: 'right', cellWidth: 18 },
-      5: { halign: 'right', cellWidth: 15 },
-      6: { halign: 'right', cellWidth: 20, fontStyle: 'bold' },
-      7: { cellWidth: 55 },
-      8: { cellWidth: 25 }
+      0: { cellWidth: 18 },
+      1: { cellWidth: 38 },
+      2: { cellWidth: 25 },
+      3: { cellWidth: 18 },
+      4: { halign: 'right', cellWidth: 14 },
+      5: { halign: 'right', cellWidth: 14 },
+      6: { halign: 'right', cellWidth: 12 },
+      7: { halign: 'right', cellWidth: 12 },
+      8: { halign: 'right', cellWidth: 16, fontStyle: 'bold' },
+      9: { cellWidth: 45 },
+      10: { cellWidth: 22 }
     },
     didParseCell: function(data) {
       if (data.section === 'body') {
-        const urgentie = componentenData[data.row.index]?.[8]
+        const urgentie = componentenData[data.row.index]?.[10]
         if (urgentie === 'DIRECT') {
           data.cell.styles.fillColor = [250, 219, 216]
         } else if (urgentie === 'DEZE WEEK') {

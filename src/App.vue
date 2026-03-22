@@ -36,6 +36,8 @@ const gefilterdeProducten = computed(() => {
   return urgenteProducten.value.filter(p =>
     p.Artnr?.toLowerCase().includes(query) ||
     p.Variant_name?.toLowerCase().includes(query) ||
+    p.Leveranciersnaam?.toLowerCase().includes(query) ||
+    p.Productgroup?.toLowerCase().includes(query) ||
     p.urgentie?.toLowerCase().includes(query)
   )
 })
@@ -47,6 +49,8 @@ const gefilterdeComponenten = computed(() => {
   return urgenteComponenten.value.filter(c =>
     c.Artnr?.toLowerCase().includes(query) ||
     c.Variant_name?.toLowerCase().includes(query) ||
+    c.Leveranciersnaam?.toLowerCase().includes(query) ||
+    c.Productgroup?.toLowerCase().includes(query) ||
     c.product_names?.toLowerCase().includes(query) ||
     c.urgentie?.toLowerCase().includes(query)
   )
@@ -289,16 +293,18 @@ async function handleExportPdf() {
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-xs">
-              <thead class="bg-gray-50 sticky top-[73px] z-10">
+              <thead class="bg-gray-100 border-b-2 border-gray-300">
                 <tr>
-                  <th class="px-4 py-2 text-left font-medium text-gray-600">Artnr</th>
-                  <th class="px-4 py-3 text-left font-medium text-gray-600">Productnaam</th>
-                  <th class="px-4 py-2 text-right font-medium text-gray-600">Voorraad</th>
-                  <th class="px-4 py-2 text-right font-medium text-gray-600">Verkoop/mnd</th>
-                  <th class="px-4 py-2 text-right font-medium text-gray-600">Levertermijn</th>
-                  <th class="px-4 py-2 text-right font-medium text-gray-600">Dagen voorraad</th>
-                  <th class="px-4 py-2 text-right font-medium text-gray-600">Te bestellen</th>
-                  <th class="px-4 py-2 text-center font-medium text-gray-600">Urgentie</th>
+                  <th class="px-3 py-2 text-left font-semibold text-gray-700">Artnr</th>
+                  <th class="px-3 py-2 text-left font-semibold text-gray-700">Productnaam</th>
+                  <th class="px-3 py-2 text-left font-semibold text-gray-700">Leverancier</th>
+                  <th class="px-3 py-2 text-left font-semibold text-gray-700">Groep</th>
+                  <th class="px-3 py-2 text-right font-semibold text-gray-700">Voorraad</th>
+                  <th class="px-3 py-2 text-right font-semibold text-gray-700">Verk/mnd</th>
+                  <th class="px-3 py-2 text-right font-semibold text-gray-700">Levert.</th>
+                  <th class="px-3 py-2 text-right font-semibold text-gray-700">Dagen</th>
+                  <th class="px-3 py-2 text-right font-semibold text-gray-700">Bestellen</th>
+                  <th class="px-3 py-2 text-center font-semibold text-gray-700">Urgentie</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-200">
@@ -307,19 +313,21 @@ async function handleExportPdf() {
                   :key="product.ID_Source"
                   :style="getRowStyle(product.urgentie_color)"
                 >
-                  <td class="px-4 py-1.5 font-mono">{{ product.Artnr }}</td>
-                  <td class="px-4 py-1.5">{{ product.Variant_name }}</td>
-                  <td class="px-4 py-1.5 text-right">{{ formatNumber(product._currentCount) }}</td>
-                  <td class="px-4 py-1.5 text-right">{{ formatNumber(product._avgSalesPerMonth) }}</td>
-                  <td class="px-4 py-1.5 text-right">{{ product.levertermijn }} d</td>
-                  <td class="px-4 py-1.5 text-right font-medium">{{ formatNumber(product.days_of_stock) }}</td>
-                  <td class="px-4 py-1.5 text-right font-bold">{{ formatNumber(product.bestellen_stuks) }}</td>
-                  <td class="px-4 py-1.5 text-center">
+                  <td class="px-3 py-1.5 font-mono">{{ product.Artnr }}</td>
+                  <td class="px-3 py-1.5">{{ product.Variant_name }}</td>
+                  <td class="px-3 py-1.5 text-gray-600">{{ product.Leveranciersnaam }}</td>
+                  <td class="px-3 py-1.5 text-gray-600">{{ product.Productgroup }}</td>
+                  <td class="px-3 py-1.5 text-right">{{ formatNumber(product._currentCount) }}</td>
+                  <td class="px-3 py-1.5 text-right">{{ formatNumber(product._avgSalesPerMonth) }}</td>
+                  <td class="px-3 py-1.5 text-right">{{ product.levertermijn }} d</td>
+                  <td class="px-3 py-1.5 text-right font-medium">{{ formatNumber(product.days_of_stock) }}</td>
+                  <td class="px-3 py-1.5 text-right font-bold">{{ formatNumber(product.bestellen_stuks) }}</td>
+                  <td class="px-3 py-1.5 text-center">
                     <span class="font-medium">{{ product.urgentie }}</span>
                   </td>
                 </tr>
                 <tr v-if="gefilterdeProducten.length === 0">
-                  <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+                  <td colspan="10" class="px-4 py-8 text-center text-gray-500">
                     <template v-if="searchProducten">
                       Geen producten gevonden voor "{{ searchProducten }}"
                     </template>
@@ -365,17 +373,19 @@ async function handleExportPdf() {
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-xs">
-              <thead class="bg-gray-50 sticky top-[73px] z-10">
+              <thead class="bg-gray-100 border-b-2 border-gray-300">
                 <tr>
-                  <th class="px-4 py-2 text-left font-medium text-gray-600">Artnr</th>
-                  <th class="px-4 py-2 text-left font-medium text-gray-600">Component</th>
-                  <th class="px-4 py-2 text-right font-medium text-gray-600">Voorraad</th>
-                  <th class="px-4 py-2 text-right font-medium text-gray-600">Verbruik/dag</th>
-                  <th class="px-4 py-2 text-right font-medium text-gray-600">Levertermijn</th>
-                  <th class="px-4 py-2 text-right font-medium text-gray-600">Dagen voorraad</th>
-                  <th class="px-4 py-2 text-right font-medium text-gray-600">Te bestellen</th>
-                  <th class="px-4 py-2 text-left font-medium text-gray-600">Gebruikt in</th>
-                  <th class="px-4 py-2 text-center font-medium text-gray-600">Urgentie</th>
+                  <th class="px-3 py-2 text-left font-semibold text-gray-700">Artnr</th>
+                  <th class="px-3 py-2 text-left font-semibold text-gray-700">Component</th>
+                  <th class="px-3 py-2 text-left font-semibold text-gray-700">Leverancier</th>
+                  <th class="px-3 py-2 text-left font-semibold text-gray-700">Groep</th>
+                  <th class="px-3 py-2 text-right font-semibold text-gray-700">Voorraad</th>
+                  <th class="px-3 py-2 text-right font-semibold text-gray-700">Verbr/dag</th>
+                  <th class="px-3 py-2 text-right font-semibold text-gray-700">Levert.</th>
+                  <th class="px-3 py-2 text-right font-semibold text-gray-700">Dagen</th>
+                  <th class="px-3 py-2 text-right font-semibold text-gray-700">Bestellen</th>
+                  <th class="px-3 py-2 text-left font-semibold text-gray-700">Gebruikt in</th>
+                  <th class="px-3 py-2 text-center font-semibold text-gray-700">Urgentie</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-200">
@@ -384,14 +394,16 @@ async function handleExportPdf() {
                   :key="component.ID_Source"
                   :style="getRowStyle(component.urgentie_color)"
                 >
-                  <td class="px-4 py-1.5 font-mono">{{ component.Artnr }}</td>
-                  <td class="px-4 py-1.5">{{ component.Variant_name }}</td>
-                  <td class="px-4 py-1.5 text-right">{{ formatNumber(component._currentCount) }}</td>
-                  <td class="px-4 py-1.5 text-right">{{ formatNumber(component.component_per_day) }}</td>
-                  <td class="px-4 py-1.5 text-right">{{ component.levertermijn }} d</td>
-                  <td class="px-4 py-1.5 text-right font-medium">{{ formatNumber(component.days_of_stock) }}</td>
-                  <td class="px-4 py-1.5 text-right font-bold">{{ formatNumber(component.bestellen_stuks) }}</td>
-                  <td class="px-4 py-1.5 max-w-xs">
+                  <td class="px-3 py-1.5 font-mono">{{ component.Artnr }}</td>
+                  <td class="px-3 py-1.5">{{ component.Variant_name }}</td>
+                  <td class="px-3 py-1.5 text-gray-600">{{ component.Leveranciersnaam }}</td>
+                  <td class="px-3 py-1.5 text-gray-600">{{ component.Productgroup }}</td>
+                  <td class="px-3 py-1.5 text-right">{{ formatNumber(component._currentCount) }}</td>
+                  <td class="px-3 py-1.5 text-right">{{ formatNumber(component.component_per_day) }}</td>
+                  <td class="px-3 py-1.5 text-right">{{ component.levertermijn }} d</td>
+                  <td class="px-3 py-1.5 text-right font-medium">{{ formatNumber(component.days_of_stock) }}</td>
+                  <td class="px-3 py-1.5 text-right font-bold">{{ formatNumber(component.bestellen_stuks) }}</td>
+                  <td class="px-3 py-1.5 max-w-xs">
                     <div class="flex flex-col gap-0.5">
                       <div
                         v-for="(name, idx) in parseProductNames(component.product_names).visible"
@@ -418,12 +430,12 @@ async function handleExportPdf() {
                       </div>
                     </div>
                   </td>
-                  <td class="px-4 py-1.5 text-center">
+                  <td class="px-3 py-1.5 text-center">
                     <span class="font-medium">{{ component.urgentie }}</span>
                   </td>
                 </tr>
                 <tr v-if="gefilterdeComponenten.length === 0">
-                  <td colspan="9" class="px-4 py-8 text-center text-gray-500">
+                  <td colspan="11" class="px-4 py-8 text-center text-gray-500">
                     <template v-if="searchComponenten">
                       Geen componenten gevonden voor "{{ searchComponenten }}"
                     </template>
