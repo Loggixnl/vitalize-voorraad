@@ -46,12 +46,17 @@ export async function parseExcelFile(file) {
 /**
  * Detecteer welk type bestand het is op basis van kolommen
  * @param {Array} data - Geparsede JSON data
- * @returns {string|null} - 'producten', 'componenten', 'joins' of null
+ * @returns {string|null} - 'producten', 'componenten', 'joins', 'bestellingen' of null
  */
 export function detectFileType(data) {
   if (!data || data.length === 0) return null
 
   const columns = Object.keys(data[0])
+
+  // Bestellingen heeft ID_variant, ProductType en Leverdatum_Bevestigd
+  if (columns.includes('ID_variant') && columns.includes('ProductType') && columns.includes('Leverdatum_Bevestigd')) {
+    return 'bestellingen'
+  }
 
   // Joins heeft ID_Variant_moeder en Pieces_per_product
   if (columns.includes('ID_Variant_moeder') && columns.includes('Pieces_per_product')) {
@@ -104,6 +109,12 @@ export function validateColumns(data, type) {
       'ID_Variant',
       'ID_Variant_moeder',
       'Pieces_per_product'
+    ],
+    bestellingen: [
+      'ID_variant',
+      'ProductType',
+      'Quantity',
+      'Leverdatum_Bevestigd'
     ]
   }
 
@@ -133,6 +144,22 @@ export function exportToExcel(data, filename = 'besteladvies.xlsx') {
 }
 
 /**
+ * Sorteer op urgentie prioriteit, dan op Artnr
+ */
+function sortByUrgencyAndArtnr(items) {
+  return [...items].sort((a, b) => {
+    // Eerst op urgentie prioriteit
+    if (a.urgentie_priority !== b.urgentie_priority) {
+      return a.urgentie_priority - b.urgentie_priority
+    }
+    // Dan op Artnr (alfabetisch)
+    const artnrA = (a.Artnr || '').toString().toLowerCase()
+    const artnrB = (b.Artnr || '').toString().toLowerCase()
+    return artnrA.localeCompare(artnrB, 'nl')
+  })
+}
+
+/**
  * Exporteer met opmaak (urgentie kleuren)
  * @param {Object} data - { producten: Array, componenten: Array }
  * @param {string} filename - Bestandsnaam
@@ -154,9 +181,8 @@ export function exportWithFormatting(data, filename = 'besteladvies.xlsx') {
   const summarySheet = XLSX.utils.json_to_sheet(summaryData)
   XLSX.utils.book_append_sheet(workbook, summarySheet, 'Samenvatting')
 
-  // Producten sheet (alleen urgente)
-  const urgentProducten = data.producten
-    .filter(p => p.is_urgent)
+  // Producten sheet (alleen urgente, gesorteerd op urgentie + artnr)
+  const urgentProducten = sortByUrgencyAndArtnr(data.producten.filter(p => p.is_urgent))
     .map(p => ({
       Artnr: p.Artnr,
       Productnaam: p.Variant_name,
@@ -172,9 +198,8 @@ export function exportWithFormatting(data, filename = 'besteladvies.xlsx') {
   const productenSheet = XLSX.utils.json_to_sheet(urgentProducten)
   XLSX.utils.book_append_sheet(workbook, productenSheet, 'Producten - Bestellen')
 
-  // Componenten sheet (alleen urgente)
-  const urgentComponenten = data.componenten
-    .filter(c => c.is_urgent)
+  // Componenten sheet (alleen urgente, gesorteerd op urgentie + artnr)
+  const urgentComponenten = sortByUrgencyAndArtnr(data.componenten.filter(c => c.is_urgent))
     .map(c => ({
       Artnr: c.Artnr,
       Component: c.Variant_name,
@@ -200,8 +225,10 @@ export function exportWithFormatting(data, filename = 'besteladvies.xlsx') {
  * @param {string} filename - Bestandsnaam
  */
 export async function exportToPdf(data, filename = 'besteladvies.pdf') {
-  const { jsPDF } = await import('jspdf')
-  await import('jspdf-autotable')
+  const jsPDFModule = await import('jspdf')
+  const jsPDF = jsPDFModule.default || jsPDFModule.jsPDF
+  const autoTableModule = await import('jspdf-autotable')
+  const autoTable = autoTableModule.default
 
   const doc = new jsPDF('landscape', 'mm', 'a4')
 
@@ -213,9 +240,9 @@ export async function exportToPdf(data, filename = 'besteladvies.pdf') {
   doc.setFontSize(10)
   doc.text(`Gegenereerd: ${new Date().toLocaleDateString('nl-NL')}`, 14, 22)
 
-  // Samenvatting
-  const urgentProducten = data.producten.filter(p => p.is_urgent)
-  const urgentComponenten = data.componenten.filter(c => c.is_urgent)
+  // Samenvatting (gesorteerd op urgentie + artnr)
+  const urgentProducten = sortByUrgencyAndArtnr(data.producten.filter(p => p.is_urgent))
+  const urgentComponenten = sortByUrgencyAndArtnr(data.componenten.filter(c => c.is_urgent))
 
   doc.setFontSize(11)
   doc.text(`Urgente producten: ${urgentProducten.length} van ${data.producten.length}`, 14, 30)
@@ -238,7 +265,7 @@ export async function exportToPdf(data, filename = 'besteladvies.pdf') {
     p.urgentie
   ])
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: 52,
     head: [['Artnr', 'Productnaam', 'Leverancier', 'Groep', 'Voorr.', 'Verk/m', 'Lev.', 'Dagen', 'Best.', 'Urgentie']],
     body: productenData,
@@ -290,7 +317,7 @@ export async function exportToPdf(data, filename = 'besteladvies.pdf') {
     c.urgentie
   ])
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: 20,
     head: [['Artnr', 'Component', 'Leverancier', 'Groep', 'Voorr.', 'Vbr/d', 'Lev.', 'Dag', 'Best.', 'Gebruikt in', 'Urg.']],
     body: componentenData,

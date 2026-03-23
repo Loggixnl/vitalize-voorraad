@@ -4,17 +4,18 @@ import { parseExcelFile, detectFileType, validateColumns } from '../lib/excelPar
 
 const emit = defineEmits(['filesLoaded'])
 
-// State voor de drie bestanden
+// State voor de vier bestanden
 const files = ref({
   producten: { file: null, data: null, status: 'waiting', error: null },
   componenten: { file: null, data: null, status: 'waiting', error: null },
-  joins: { file: null, data: null, status: 'waiting', error: null }
+  joins: { file: null, data: null, status: 'waiting', error: null },
+  bestellingen: { file: null, data: null, status: 'waiting', error: null }
 })
 
 // Drag state
 const isDragging = ref(false)
 
-// Check of alle bestanden geladen zijn
+// Check of alle verplichte bestanden geladen zijn (bestellingen is optioneel)
 const allFilesLoaded = computed(() => {
   return files.value.producten.status === 'loaded' &&
          files.value.componenten.status === 'loaded' &&
@@ -76,12 +77,13 @@ async function processFiles(fileList) {
     }
   }
 
-  // Emit als alle bestanden geladen zijn
+  // Emit als alle verplichte bestanden geladen zijn
   if (allFilesLoaded.value) {
     emit('filesLoaded', {
       producten: files.value.producten.data,
       componenten: files.value.componenten.data,
-      joins: files.value.joins.data
+      joins: files.value.joins.data,
+      bestellingen: files.value.bestellingen.data // kan null zijn
     })
   }
 }
@@ -143,13 +145,14 @@ function getStatusClass(status) {
       <label for="file-input" class="cursor-pointer">
         <div class="text-4xl mb-4">📁</div>
         <p class="text-lg font-medium text-gray-700">
-          Sleep hier 3 Excel bestanden naartoe
+          Sleep hier 4 Excel bestanden naartoe
         </p>
         <p class="text-sm text-gray-500 mt-2">
           of klik om te selecteren
         </p>
         <p class="text-xs text-gray-400 mt-4">
-          Benodigde bestanden: producten.xlsx, componenten.xlsx, joins.xlsx
+          Benodigde bestanden: producten.xlsx, componenten.xlsx, joins.xlsx<br>
+          Optioneel: bestellingen.xlsx
         </p>
       </label>
     </div>

@@ -1,8 +1,10 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import FileUploader from './components/FileUploader.vue'
-import { calculateProductUrgency, calculateComponentUrgency, filterUrgent, sortByUrgency } from './lib/calculator'
+import { calculateProductUrgency, calculateComponentUrgency, filterUrgent, sortByUrgency, createBestellingenMap, addBestellingenInfo } from './lib/calculator'
 import { exportWithFormatting, exportToPdf } from './lib/excelParser'
+
+const STORAGE_KEY = 'vitalize-besteladvies-sessie-v2'
 
 // Configuratie parameters
 const urgentieHorizon = ref(14)
@@ -95,10 +97,35 @@ const gefilterdeComponenten = computed(() => {
   return result
 })
 
+// Bestellingen map voor snelle lookup
+const bestellingenMap = ref(new Map())
+
 // Handle wanneer bestanden geladen zijn
 function handleFilesLoaded(data) {
   rawData.value = data
+
+  // Debug: log de kolommen in de eerste rij van elk bestand
+  if (data.producten?.length > 0) {
+    console.log('=== PRODUCTEN KOLOMMEN ===')
+    console.log(Object.keys(data.producten[0]))
+    console.log('Eerste product:', data.producten[0])
+  }
+  if (data.componenten?.length > 0) {
+    console.log('=== COMPONENTEN KOLOMMEN ===')
+    console.log(Object.keys(data.componenten[0]))
+    console.log('Eerste component:', data.componenten[0])
+  }
+  if (data.bestellingen?.length > 0) {
+    console.log('=== BESTELLINGEN KOLOMMEN ===')
+    console.log(Object.keys(data.bestellingen[0]))
+    console.log('Eerste bestelling:', data.bestellingen[0])
+  }
+
+  // Maak bestellingen lookup map
+  bestellingenMap.value = createBestellingenMap(data.bestellingen)
+
   recalculate()
+  persistState()
 }
 
 // Herbereken met huidige parameters
@@ -106,26 +133,93 @@ function recalculate() {
   if (!rawData.value) return
 
   // Bereken producten
-  productenResults.value = calculateProductUrgency(
+  let producten = calculateProductUrgency(
     rawData.value.producten,
     urgentieHorizon.value,
     bufferDagen.value
   )
+  // Voeg bestellingen info toe
+  producten = addBestellingenInfo(producten, bestellingenMap.value)
+  productenResults.value = producten
 
   // Bereken componenten (heeft productresultaten nodig)
-  componentenResults.value = calculateComponentUrgency(
+  let componenten = calculateComponentUrgency(
     rawData.value.componenten,
     productenResults.value,
     rawData.value.joins,
     urgentieHorizon.value,
     bufferDagen.value
   )
+  // Voeg bestellingen info toe
+  componenten = addBestellingenInfo(componenten, bestellingenMap.value)
+  componentenResults.value = componenten
 }
+
+function persistState() {
+  if (!rawData.value) return
+  try {
+    const payload = {
+      v: 1,
+      urgentieHorizon: urgentieHorizon.value,
+      bufferDagen: bufferDagen.value,
+      producten: rawData.value.producten,
+      componenten: rawData.value.componenten,
+      joins: rawData.value.joins,
+      bestellingen: rawData.value.bestellingen,
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+  } catch (e) {
+    console.warn('Kon sessie niet opslaan (opslag vol of privévenster?)', e)
+  }
+}
+
+function loadPersistedState() {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY)
+    if (!s) return
+    const data = JSON.parse(s)
+    if (!Array.isArray(data?.producten) || !Array.isArray(data?.componenten) || !Array.isArray(data?.joins)) {
+      localStorage.removeItem(STORAGE_KEY)
+      return
+    }
+    urgentieHorizon.value =
+      typeof data.urgentieHorizon === 'number' ? data.urgentieHorizon : 14
+    bufferDagen.value = typeof data.bufferDagen === 'number' ? data.bufferDagen : 60
+    rawData.value = {
+      producten: data.producten,
+      componenten: data.componenten,
+      joins: data.joins,
+      bestellingen: data.bestellingen || null,
+    }
+    // Maak bestellingen lookup map
+    bestellingenMap.value = createBestellingenMap(data.bestellingen)
+    recalculate()
+  } catch (e) {
+    console.warn('Kon opgeslagen sessie niet laden', e)
+    localStorage.removeItem(STORAGE_KEY)
+  }
+}
+
+function clearSession() {
+  rawData.value = null
+  productenResults.value = []
+  componentenResults.value = []
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+onMounted(() => {
+  loadPersistedState()
+})
 
 // Herbereken wanneer parameters veranderen
 watch([urgentieHorizon, bufferDagen], () => {
   if (rawData.value) {
     recalculate()
+    persistState()
   }
 })
 
@@ -292,232 +386,292 @@ async function handleExportPdf() {
 
         <!-- Legenda -->
         <section class="bg-white rounded-lg shadow p-4 mb-6">
-          <h3 class="text-sm font-medium text-gray-700 mb-2">Urgentie legenda:</h3>
-          <div class="flex gap-4 text-sm">
+          <h3 class="text-sm font-medium text-gray-700 mb-2">Legenda:</h3>
+          <div class="flex flex-wrap gap-4 text-sm">
             <span class="px-3 py-1 rounded" style="background-color: #FADBD8">DIRECT</span>
             <span class="px-3 py-1 rounded" style="background-color: #FDEBD0">DEZE WEEK</span>
             <span class="px-3 py-1 rounded" style="background-color: #FEF9E7">BINNEN 2 WKN</span>
+            <span class="px-3 py-1 rounded bg-gray-100 flex items-center gap-1">
+              <span class="text-orange-500">🚩</span> In bestelling
+            </span>
           </div>
         </section>
 
         <!-- Producten tabel -->
         <section class="bg-white rounded-lg shadow mb-6">
-          <div class="sticky top-0 z-20 bg-white rounded-t-lg border-b p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <h2 class="text-lg font-semibold">
-              Producten - Te bestellen
-              <span class="text-gray-500 font-normal">
-                ({{ gefilterdeProducten.length }}<span v-if="searchProducten || filterLeverancierProducten"> van {{ urgenteProducten.length }}</span>)
-              </span>
-            </h2>
-            <div class="flex items-center gap-2">
-              <!-- Leverancier filter -->
-              <select
-                v-model="filterLeverancierProducten"
-                class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-              >
-                <option value="">Alle leveranciers</option>
-                <option v-for="lev in leveranciersProducten" :key="lev" :value="lev">
-                  {{ lev }}
-                </option>
-              </select>
-              <!-- Zoeken -->
-              <div class="relative">
-                <input
-                  v-model="searchProducten"
-                  type="text"
-                  placeholder="Zoeken..."
-                  class="w-full sm:w-48 pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <svg class="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <button
-                  v-if="searchProducten"
-                  @click="searchProducten = ''"
-                  class="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+          <!-- Sticky header container -->
+          <div class="sticky top-0 z-30 bg-white rounded-t-lg">
+            <!-- Titel en filters -->
+            <div class="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-gray-200">
+              <h2 class="text-lg font-semibold">
+                Producten - Te bestellen
+                <span class="text-gray-500 font-normal">
+                  ({{ gefilterdeProducten.length }}<span v-if="searchProducten || filterLeverancierProducten"> van {{ urgenteProducten.length }}</span>)
+                </span>
+              </h2>
+              <div class="flex items-center gap-2">
+                <!-- Leverancier filter -->
+                <select
+                  v-model="filterLeverancierProducten"
+                  class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                 >
-                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  <option value="">Alle leveranciers</option>
+                  <option v-for="lev in leveranciersProducten" :key="lev" :value="lev">
+                    {{ lev }}
+                  </option>
+                </select>
+                <!-- Zoeken -->
+                <div class="relative">
+                  <input
+                    v-model="searchProducten"
+                    type="text"
+                    placeholder="Zoeken..."
+                    class="w-full sm:w-48 pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <svg class="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                </button>
+                  <button
+                    v-if="searchProducten"
+                    @click="searchProducten = ''"
+                    class="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                  >
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <!-- Tabel header -->
+            <div class="bg-gray-100 border-b-2 border-gray-300 text-xs">
+              <div class="flex">
+                <div class="px-1 py-2 font-semibold text-gray-700 w-8 text-center" title="In bestelling"></div>
+                <div class="px-3 py-2 font-semibold text-gray-700 w-20">Artnr</div>
+                <div class="px-3 py-2 font-semibold text-gray-700 flex-1 min-w-48">Productnaam</div>
+                <div class="px-3 py-2 font-semibold text-gray-700 w-32">Leverancier</div>
+                <div class="px-3 py-2 font-semibold text-gray-700 w-24">Groep</div>
+                <div class="px-3 py-2 font-semibold text-gray-700 w-16 text-right">Voorraad</div>
+                <div class="px-3 py-2 font-semibold text-gray-700 w-16 text-right">Verk/mnd</div>
+                <div class="px-3 py-2 font-semibold text-gray-700 w-14 text-right">Levert.</div>
+                <div class="px-3 py-2 font-semibold text-gray-700 w-14 text-right">Dagen</div>
+                <div class="px-3 py-2 font-semibold text-gray-700 w-16 text-right">Bestellen</div>
+                <div class="px-3 py-2 font-semibold text-gray-700 w-20 text-center">Urgentie</div>
               </div>
             </div>
           </div>
+          <!-- Tabel body -->
           <div class="overflow-x-auto">
-            <table class="w-full text-xs">
-              <thead class="bg-gray-100 border-b-2 border-gray-300">
-                <tr>
-                  <th class="px-3 py-2 text-left font-semibold text-gray-700">Artnr</th>
-                  <th class="px-3 py-2 text-left font-semibold text-gray-700">Productnaam</th>
-                  <th class="px-3 py-2 text-left font-semibold text-gray-700">Leverancier</th>
-                  <th class="px-3 py-2 text-left font-semibold text-gray-700">Groep</th>
-                  <th class="px-3 py-2 text-right font-semibold text-gray-700">Voorraad</th>
-                  <th class="px-3 py-2 text-right font-semibold text-gray-700">Verk/mnd</th>
-                  <th class="px-3 py-2 text-right font-semibold text-gray-700">Levert.</th>
-                  <th class="px-3 py-2 text-right font-semibold text-gray-700">Dagen</th>
-                  <th class="px-3 py-2 text-right font-semibold text-gray-700">Bestellen</th>
-                  <th class="px-3 py-2 text-center font-semibold text-gray-700">Urgentie</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-200">
-                <tr
-                  v-for="product in gefilterdeProducten"
-                  :key="product.ID_Source"
-                  :style="getRowStyle(product.urgentie_color)"
-                >
-                  <td class="px-3 py-1.5 font-mono">{{ product.Artnr }}</td>
-                  <td class="px-3 py-1.5">{{ product.Variant_name }}</td>
-                  <td class="px-3 py-1.5 text-gray-600">{{ product.Leveranciersnaam }}</td>
-                  <td class="px-3 py-1.5 text-gray-600">{{ product.Productgroup }}</td>
-                  <td class="px-3 py-1.5 text-right">{{ formatNumber(product._currentCount) }}</td>
-                  <td class="px-3 py-1.5 text-right">{{ formatNumber(product._avgSalesPerMonth) }}</td>
-                  <td class="px-3 py-1.5 text-right">{{ product.levertermijn }} d</td>
-                  <td class="px-3 py-1.5 text-right font-medium">{{ formatNumber(product.days_of_stock) }}</td>
-                  <td class="px-3 py-1.5 text-right font-bold">{{ formatNumber(product.bestellen_stuks) }}</td>
-                  <td class="px-3 py-1.5 text-center">
-                    <span class="font-medium">{{ product.urgentie }}</span>
-                  </td>
-                </tr>
-                <tr v-if="gefilterdeProducten.length === 0">
-                  <td colspan="10" class="px-4 py-8 text-center text-gray-500">
-                    <template v-if="searchProducten">
-                      Geen producten gevonden voor "{{ searchProducten }}"
-                    </template>
-                    <template v-else>
-                      Geen urgente producten
-                    </template>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="text-xs">
+              <div
+                v-for="product in gefilterdeProducten"
+                :key="product.ID_Source"
+                class="flex border-b border-gray-200"
+                :style="getRowStyle(product.urgentie_color)"
+              >
+                <!-- Bestelling vlag -->
+                <div class="px-1 py-1.5 w-8 text-center">
+                  <div v-if="product.heeftBestelling" class="relative group inline-block">
+                    <span class="text-orange-500 cursor-help" title="In bestelling">🚩</span>
+                    <!-- Hover popup -->
+                    <div class="absolute z-50 left-full ml-2 top-0 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg min-w-48 whitespace-nowrap">
+                      <div class="font-semibold text-orange-400 mb-2">In bestelling</div>
+                      <div v-for="(best, idx) in product.bestellingen" :key="idx" class="mb-1 last:mb-0">
+                        <div class="flex justify-between gap-4">
+                          <span>Aantal:</span>
+                          <span class="font-medium">{{ formatNumber(best.quantity) }}</span>
+                        </div>
+                        <div class="flex justify-between gap-4">
+                          <span>Leverdatum:</span>
+                          <span class="font-medium">{{ best.leverdatumFormatted }}</span>
+                        </div>
+                        <div v-if="idx < product.bestellingen.length - 1" class="border-t border-gray-600 my-1"></div>
+                      </div>
+                      <div v-if="product.bestellingen.length > 1" class="border-t border-gray-600 mt-2 pt-2 font-semibold">
+                        Totaal: {{ formatNumber(product.totaalBesteld) }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="px-3 py-1.5 font-mono w-20">{{ product.Artnr }}</div>
+                <div class="px-3 py-1.5 flex-1 min-w-48 truncate">{{ product.Variant_name }}</div>
+                <div class="px-3 py-1.5 text-gray-600 w-32 truncate">{{ product.Leveranciersnaam }}</div>
+                <div class="px-3 py-1.5 text-gray-600 w-24 truncate">{{ product.Productgroup }}</div>
+                <div class="px-3 py-1.5 text-right w-16">{{ formatNumber(product._currentCount) }}</div>
+                <div class="px-3 py-1.5 text-right w-16">{{ formatNumber(product._avgSalesPerMonth) }}</div>
+                <div class="px-3 py-1.5 text-right w-14">{{ product.levertermijn }} d</div>
+                <div class="px-3 py-1.5 text-right font-medium w-14">{{ formatNumber(product.days_of_stock) }}</div>
+                <div class="px-3 py-1.5 text-right font-bold w-16">{{ formatNumber(product.bestellen_stuks) }}</div>
+                <div class="px-3 py-1.5 text-center w-20">
+                  <span class="font-medium">{{ product.urgentie }}</span>
+                </div>
+              </div>
+              <div v-if="gefilterdeProducten.length === 0" class="px-4 py-8 text-center text-gray-500">
+                <template v-if="searchProducten">
+                  Geen producten gevonden voor "{{ searchProducten }}"
+                </template>
+                <template v-else>
+                  Geen urgente producten
+                </template>
+              </div>
+            </div>
           </div>
         </section>
 
         <!-- Componenten tabel -->
         <section class="bg-white rounded-lg shadow">
-          <div class="sticky top-0 z-20 bg-white rounded-t-lg border-b p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <h2 class="text-lg font-semibold">
-              Componenten - Te bestellen
-              <span class="text-gray-500 font-normal">
-                ({{ gefilterdeComponenten.length }}<span v-if="searchComponenten || filterLeverancierComponenten"> van {{ urgenteComponenten.length }}</span>)
-              </span>
-            </h2>
-            <div class="flex items-center gap-2">
-              <!-- Leverancier filter -->
-              <select
-                v-model="filterLeverancierComponenten"
-                class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-              >
-                <option value="">Alle leveranciers</option>
-                <option v-for="lev in leveranciersComponenten" :key="lev" :value="lev">
-                  {{ lev }}
-                </option>
-              </select>
-              <!-- Zoeken -->
-              <div class="relative">
-                <input
-                  v-model="searchComponenten"
-                  type="text"
-                  placeholder="Zoeken..."
-                  class="w-full sm:w-48 pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <svg class="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <button
-                  v-if="searchComponenten"
-                  @click="searchComponenten = ''"
-                  class="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+          <!-- Sticky header container -->
+          <div class="sticky top-0 z-30 bg-white rounded-t-lg">
+            <!-- Titel en filters -->
+            <div class="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-gray-200">
+              <h2 class="text-lg font-semibold">
+                Componenten - Te bestellen
+                <span class="text-gray-500 font-normal">
+                  ({{ gefilterdeComponenten.length }}<span v-if="searchComponenten || filterLeverancierComponenten"> van {{ urgenteComponenten.length }}</span>)
+                </span>
+              </h2>
+              <div class="flex items-center gap-2">
+                <!-- Leverancier filter -->
+                <select
+                  v-model="filterLeverancierComponenten"
+                  class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                 >
-                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  <option value="">Alle leveranciers</option>
+                  <option v-for="lev in leveranciersComponenten" :key="lev" :value="lev">
+                    {{ lev }}
+                  </option>
+                </select>
+                <!-- Zoeken -->
+                <div class="relative">
+                  <input
+                    v-model="searchComponenten"
+                    type="text"
+                    placeholder="Zoeken..."
+                    class="w-full sm:w-48 pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <svg class="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                </button>
+                  <button
+                    v-if="searchComponenten"
+                    @click="searchComponenten = ''"
+                    class="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                  >
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <!-- Tabel header -->
+            <div class="bg-gray-100 border-b-2 border-gray-300 text-xs">
+              <div class="flex">
+                <div class="px-1 py-2 font-semibold text-gray-700 w-8 text-center" title="In bestelling"></div>
+                <div class="px-3 py-2 font-semibold text-gray-700 w-20">Artnr</div>
+                <div class="px-3 py-2 font-semibold text-gray-700 w-44">Component</div>
+                <div class="px-3 py-2 font-semibold text-gray-700 w-28">Leverancier</div>
+                <div class="px-3 py-2 font-semibold text-gray-700 w-20">Groep</div>
+                <div class="px-3 py-2 font-semibold text-gray-700 w-16 text-right">Voorraad</div>
+                <div class="px-3 py-2 font-semibold text-gray-700 w-14 text-right">Vbr/dag</div>
+                <div class="px-3 py-2 font-semibold text-gray-700 w-14 text-right">Levert.</div>
+                <div class="px-3 py-2 font-semibold text-gray-700 w-14 text-right">Dagen</div>
+                <div class="px-3 py-2 font-semibold text-gray-700 w-16 text-right">Bestellen</div>
+                <div class="px-3 py-2 font-semibold text-gray-700 flex-1 min-w-32">Gebruikt in</div>
+                <div class="px-3 py-2 font-semibold text-gray-700 w-20 text-center">Urgentie</div>
               </div>
             </div>
           </div>
+          <!-- Tabel body -->
           <div class="overflow-x-auto">
-            <table class="w-full text-xs">
-              <thead class="bg-gray-100 border-b-2 border-gray-300">
-                <tr>
-                  <th class="px-3 py-2 text-left font-semibold text-gray-700">Artnr</th>
-                  <th class="px-3 py-2 text-left font-semibold text-gray-700">Component</th>
-                  <th class="px-3 py-2 text-left font-semibold text-gray-700">Leverancier</th>
-                  <th class="px-3 py-2 text-left font-semibold text-gray-700">Groep</th>
-                  <th class="px-3 py-2 text-right font-semibold text-gray-700">Voorraad</th>
-                  <th class="px-3 py-2 text-right font-semibold text-gray-700">Verbr/dag</th>
-                  <th class="px-3 py-2 text-right font-semibold text-gray-700">Levert.</th>
-                  <th class="px-3 py-2 text-right font-semibold text-gray-700">Dagen</th>
-                  <th class="px-3 py-2 text-right font-semibold text-gray-700">Bestellen</th>
-                  <th class="px-3 py-2 text-left font-semibold text-gray-700">Gebruikt in</th>
-                  <th class="px-3 py-2 text-center font-semibold text-gray-700">Urgentie</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-200">
-                <tr
-                  v-for="component in gefilterdeComponenten"
-                  :key="component.ID_Source"
-                  :style="getRowStyle(component.urgentie_color)"
-                >
-                  <td class="px-3 py-1.5 font-mono">{{ component.Artnr }}</td>
-                  <td class="px-3 py-1.5">{{ component.Variant_name }}</td>
-                  <td class="px-3 py-1.5 text-gray-600">{{ component.Leveranciersnaam }}</td>
-                  <td class="px-3 py-1.5 text-gray-600">{{ component.Productgroup }}</td>
-                  <td class="px-3 py-1.5 text-right">{{ formatNumber(component._currentCount) }}</td>
-                  <td class="px-3 py-1.5 text-right">{{ formatNumber(component.component_per_day) }}</td>
-                  <td class="px-3 py-1.5 text-right">{{ component.levertermijn }} d</td>
-                  <td class="px-3 py-1.5 text-right font-medium">{{ formatNumber(component.days_of_stock) }}</td>
-                  <td class="px-3 py-1.5 text-right font-bold">{{ formatNumber(component.bestellen_stuks) }}</td>
-                  <td class="px-3 py-1.5 max-w-xs">
-                    <div class="flex flex-col gap-0.5">
-                      <div
-                        v-for="(name, idx) in parseProductNames(component.product_names).visible"
-                        :key="idx"
-                        class="truncate"
-                      >
-                        {{ name }}
+            <div class="text-xs">
+              <div
+                v-for="component in gefilterdeComponenten"
+                :key="component.ID_Source"
+                class="flex border-b border-gray-200"
+                :style="getRowStyle(component.urgentie_color)"
+              >
+                <!-- Bestelling vlag -->
+                <div class="px-1 py-1.5 w-8 text-center">
+                  <div v-if="component.heeftBestelling" class="relative group inline-block">
+                    <span class="text-orange-500 cursor-help" title="In bestelling">🚩</span>
+                    <!-- Hover popup -->
+                    <div class="absolute z-50 left-full ml-2 top-0 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg min-w-48 whitespace-nowrap">
+                      <div class="font-semibold text-orange-400 mb-2">In bestelling</div>
+                      <div v-for="(best, idx) in component.bestellingen" :key="idx" class="mb-1 last:mb-0">
+                        <div class="flex justify-between gap-4">
+                          <span>Aantal:</span>
+                          <span class="font-medium">{{ formatNumber(best.quantity) }}</span>
+                        </div>
+                        <div class="flex justify-between gap-4">
+                          <span>Leverdatum:</span>
+                          <span class="font-medium">{{ best.leverdatumFormatted }}</span>
+                        </div>
+                        <div v-if="idx < component.bestellingen.length - 1" class="border-t border-gray-600 my-1"></div>
                       </div>
-                      <div
-                        v-if="parseProductNames(component.product_names).hidden.length > 0"
-                        class="relative group"
-                      >
-                        <span class="text-blue-600 cursor-pointer hover:underline">
-                          +{{ parseProductNames(component.product_names).hidden.length }} meer...
-                        </span>
-                        <div class="absolute z-50 left-0 bottom-full mb-1 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg min-w-64 max-w-sm">
-                          <div class="font-medium mb-2">Alle producten ({{ parseProductNames(component.product_names).total }}):</div>
-                          <div class="flex flex-col gap-1 max-h-48 overflow-y-auto">
-                            <div v-for="(name, idx) in parseProductNames(component.product_names).visible.concat(parseProductNames(component.product_names).hidden)" :key="idx">
-                              {{ name }}
-                            </div>
+                      <div v-if="component.bestellingen.length > 1" class="border-t border-gray-600 mt-2 pt-2 font-semibold">
+                        Totaal: {{ formatNumber(component.totaalBesteld) }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="px-3 py-1.5 font-mono w-20">{{ component.Artnr }}</div>
+                <div class="px-3 py-1.5 w-44 truncate">{{ component.Variant_name }}</div>
+                <div class="px-3 py-1.5 text-gray-600 w-28 truncate">{{ component.Leveranciersnaam }}</div>
+                <div class="px-3 py-1.5 text-gray-600 w-20 truncate">{{ component.Productgroup }}</div>
+                <div class="px-3 py-1.5 text-right w-16">{{ formatNumber(component._currentCount) }}</div>
+                <div class="px-3 py-1.5 text-right w-14">{{ formatNumber(component.component_per_day) }}</div>
+                <div class="px-3 py-1.5 text-right w-14">{{ component.levertermijn }} d</div>
+                <div class="px-3 py-1.5 text-right font-medium w-14">{{ formatNumber(component.days_of_stock) }}</div>
+                <div class="px-3 py-1.5 text-right font-bold w-16">{{ formatNumber(component.bestellen_stuks) }}</div>
+                <div class="px-3 py-1.5 flex-1 min-w-32">
+                  <div class="flex flex-col gap-0.5">
+                    <div
+                      v-for="(name, idx) in parseProductNames(component.product_names).visible"
+                      :key="idx"
+                      class="truncate"
+                    >
+                      {{ name }}
+                    </div>
+                    <div
+                      v-if="parseProductNames(component.product_names).hidden.length > 0"
+                      class="relative group"
+                    >
+                      <span class="text-blue-600 cursor-pointer hover:underline">
+                        +{{ parseProductNames(component.product_names).hidden.length }} meer...
+                      </span>
+                      <div class="absolute z-50 left-0 bottom-full mb-1 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg min-w-64 max-w-sm">
+                        <div class="font-medium mb-2">Alle producten ({{ parseProductNames(component.product_names).total }}):</div>
+                        <div class="flex flex-col gap-1 max-h-48 overflow-y-auto">
+                          <div v-for="(name, idx) in parseProductNames(component.product_names).visible.concat(parseProductNames(component.product_names).hidden)" :key="idx">
+                            {{ name }}
                           </div>
                         </div>
                       </div>
                     </div>
-                  </td>
-                  <td class="px-3 py-1.5 text-center">
-                    <span class="font-medium">{{ component.urgentie }}</span>
-                  </td>
-                </tr>
-                <tr v-if="gefilterdeComponenten.length === 0">
-                  <td colspan="11" class="px-4 py-8 text-center text-gray-500">
-                    <template v-if="searchComponenten">
-                      Geen componenten gevonden voor "{{ searchComponenten }}"
-                    </template>
-                    <template v-else>
-                      Geen urgente componenten
-                    </template>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                  </div>
+                </div>
+                <div class="px-3 py-1.5 text-center w-20">
+                  <span class="font-medium">{{ component.urgentie }}</span>
+                </div>
+              </div>
+              <div v-if="gefilterdeComponenten.length === 0" class="px-4 py-8 text-center text-gray-500">
+                <template v-if="searchComponenten">
+                  Geen componenten gevonden voor "{{ searchComponenten }}"
+                </template>
+                <template v-else>
+                  Geen urgente componenten
+                </template>
+              </div>
+            </div>
           </div>
         </section>
 
         <!-- Reset knop -->
         <div class="mt-6 text-center">
           <button
-            @click="rawData = null"
+            type="button"
+            @click="clearSession"
             class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 underline"
           >
             Andere bestanden uploaden
