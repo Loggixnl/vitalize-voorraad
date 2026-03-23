@@ -18,6 +18,63 @@ const searchComponenten = ref('')
 const filterLeverancierProducten = ref('')
 const filterLeverancierComponenten = ref('')
 
+// Selectie voor bestellen (Set van Artnr)
+const selectedProducten = ref(new Set())
+const selectedComponenten = ref(new Set())
+
+// Computed: totaal aantal geselecteerde items
+const totalSelected = computed(() => {
+  return selectedProducten.value.size + selectedComponenten.value.size
+})
+
+// Toggle selectie van een product
+function toggleProductSelection(artnr) {
+  if (selectedProducten.value.has(artnr)) {
+    selectedProducten.value.delete(artnr)
+  } else {
+    selectedProducten.value.add(artnr)
+  }
+  // Trigger reactivity
+  selectedProducten.value = new Set(selectedProducten.value)
+}
+
+// Toggle selectie van een component
+function toggleComponentSelection(artnr) {
+  if (selectedComponenten.value.has(artnr)) {
+    selectedComponenten.value.delete(artnr)
+  } else {
+    selectedComponenten.value.add(artnr)
+  }
+  // Trigger reactivity
+  selectedComponenten.value = new Set(selectedComponenten.value)
+}
+
+// Bestellen via FileMaker
+function handleBestellen() {
+  if (totalSelected.value === 0) return
+
+  // Verzamel alle geselecteerde artikelnummers
+  const artikelen = [
+    ...Array.from(selectedProducten.value),
+    ...Array.from(selectedComponenten.value)
+  ]
+
+  // Maak JSON parameter
+  const parameter = JSON.stringify({ artikelen })
+
+  // Roep FileMaker script aan
+  if (typeof FileMaker !== 'undefined' && FileMaker.PerformScript) {
+    FileMaker.PerformScript('BESTELLING | from report', parameter)
+    // Reset selecties na bestellen
+    selectedProducten.value = new Set()
+    selectedComponenten.value = new Set()
+  } else {
+    // Fallback voor development/testing buiten FileMaker
+    console.log('FileMaker script aanroep:', 'BESTELLING | from report', parameter)
+    alert('FileMaker niet beschikbaar.\n\nParameter zou zijn:\n' + parameter)
+  }
+}
+
 // Ruwe data uit Excel
 const rawData = ref(null)
 
@@ -444,6 +501,19 @@ async function handleExportPdf() {
                     </svg>
                   </button>
                 </div>
+                <!-- Bestellen button -->
+                <button
+                  @click="handleBestellen"
+                  :disabled="totalSelected === 0"
+                  :class="[
+                    'px-4 py-2 rounded-lg text-sm font-semibold transition-colors',
+                    totalSelected > 0
+                      ? 'bg-orange-500 hover:bg-orange-600 text-white cursor-pointer'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  ]"
+                >
+                  BESTELLEN{{ totalSelected > 0 ? ` (${totalSelected})` : '' }}
+                </button>
               </div>
             </div>
             <!-- Tabel header -->
@@ -460,6 +530,7 @@ async function handleExportPdf() {
                 <div class="px-3 py-2 font-semibold text-gray-700 w-16 text-right">Bestellen</div>
                 <div class="px-1 py-2 font-semibold text-gray-700 w-8 text-center" title="In bestelling"></div>
                 <div class="px-3 py-2 font-semibold text-gray-700 w-20 text-center">Urgentie</div>
+                <div class="px-2 py-2 font-semibold text-gray-700 w-10 text-center">Sel.</div>
               </div>
             </div>
           </div>
@@ -509,6 +580,15 @@ async function handleExportPdf() {
                 </div>
                 <div class="px-3 py-1.5 text-center w-20">
                   <span class="font-medium">{{ product.urgentie }}</span>
+                </div>
+                <!-- Selectie checkbox -->
+                <div class="px-2 py-1.5 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    :checked="selectedProducten.has(product.Artnr)"
+                    @change="toggleProductSelection(product.Artnr)"
+                    class="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500 cursor-pointer"
+                  />
                 </div>
               </div>
               <div v-if="gefilterdeProducten.length === 0" class="px-4 py-8 text-center text-gray-500">
@@ -567,6 +647,19 @@ async function handleExportPdf() {
                     </svg>
                   </button>
                 </div>
+                <!-- Bestellen button -->
+                <button
+                  @click="handleBestellen"
+                  :disabled="totalSelected === 0"
+                  :class="[
+                    'px-4 py-2 rounded-lg text-sm font-semibold transition-colors',
+                    totalSelected > 0
+                      ? 'bg-orange-500 hover:bg-orange-600 text-white cursor-pointer'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  ]"
+                >
+                  BESTELLEN{{ totalSelected > 0 ? ` (${totalSelected})` : '' }}
+                </button>
               </div>
             </div>
             <!-- Tabel header -->
@@ -584,6 +677,7 @@ async function handleExportPdf() {
                 <div class="px-1 py-2 font-semibold text-gray-700 w-8 text-center" title="In bestelling"></div>
                 <div class="px-3 py-2 font-semibold text-gray-700 flex-1 min-w-32">Gebruikt in</div>
                 <div class="px-3 py-2 font-semibold text-gray-700 w-20 text-center">Urgentie</div>
+                <div class="px-2 py-2 font-semibold text-gray-700 w-10 text-center">Sel.</div>
               </div>
             </div>
           </div>
@@ -660,6 +754,15 @@ async function handleExportPdf() {
                 </div>
                 <div class="px-3 py-1.5 text-center w-20">
                   <span class="font-medium">{{ component.urgentie }}</span>
+                </div>
+                <!-- Selectie checkbox -->
+                <div class="px-2 py-1.5 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    :checked="selectedComponenten.has(component.Artnr)"
+                    @change="toggleComponentSelection(component.Artnr)"
+                    class="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500 cursor-pointer"
+                  />
                 </div>
               </div>
               <div v-if="gefilterdeComponenten.length === 0" class="px-4 py-8 text-center text-gray-500">
