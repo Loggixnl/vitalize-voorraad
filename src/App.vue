@@ -7,8 +7,8 @@ import { exportWithFormatting, exportToPdf } from './lib/excelParser'
 const STORAGE_KEY = 'vitalize-besteladvies-sessie-v2'
 
 // Configuratie parameters
-const urgentieHorizon = ref(14)
-const bufferDagen = ref(60)
+const urgentieHorizon = ref(7)
+const bufferDagen = ref(7)
 
 // Globale zoekfilter (voor beide tabellen)
 const searchQuery = ref('')
@@ -247,8 +247,8 @@ function loadPersistedState() {
       return
     }
     urgentieHorizon.value =
-      typeof data.urgentieHorizon === 'number' ? data.urgentieHorizon : 14
-    bufferDagen.value = typeof data.bufferDagen === 'number' ? data.bufferDagen : 60
+      typeof data.urgentieHorizon === 'number' ? data.urgentieHorizon : 7
+    bufferDagen.value = typeof data.bufferDagen === 'number' ? data.bufferDagen : 7
     rawData.value = {
       producten: data.producten,
       componenten: data.componenten,
@@ -359,13 +359,83 @@ async function handleExportPdf() {
   <div class="min-h-screen bg-gray-100">
     <!-- Header -->
     <header class="bg-white shadow-sm">
-      <div class="max-w-7xl mx-auto px-4 py-4">
-        <h1 class="text-2xl font-bold text-gray-900">Vitalize Voorraad Besteladvies</h1>
-        <p class="text-gray-600 text-sm">Upload Excel bestanden om inkoopadvies te genereren</p>
+      <div class="w-full px-4 py-3 flex items-center justify-between gap-4">
+        <div class="shrink-0">
+          <h1 class="text-xl font-bold text-gray-900">Vitalize Voorraad Besteladvies</h1>
+          <p class="text-gray-600 text-xs">Upload Excel bestanden om inkoopadvies te genereren</p>
+        </div>
+
+        <!-- Controls (alleen tonen als data geladen is) -->
+        <div v-if="rawData" class="flex items-center gap-3 flex-wrap justify-end">
+          <!-- Urgentie dropdown -->
+          <div class="flex items-center gap-1.5">
+            <label class="text-xs text-gray-600 whitespace-nowrap">Urgentie:</label>
+            <select
+              v-model.number="urgentieHorizon"
+              class="px-2 py-1.5 border border-gray-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option :value="0">0 dagen</option>
+              <option :value="7">7 dagen</option>
+              <option :value="14">14 dagen</option>
+              <option :value="21">21 dagen</option>
+              <option :value="30">30 dagen</option>
+            </select>
+          </div>
+
+          <!-- Buffer dropdown -->
+          <div class="flex items-center gap-1.5">
+            <label class="text-xs text-gray-600 whitespace-nowrap">Buffer:</label>
+            <select
+              v-model.number="bufferDagen"
+              class="px-2 py-1.5 border border-gray-300 rounded text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option :value="0">0 dagen</option>
+              <option :value="7">7 dagen</option>
+              <option :value="14">14 dagen</option>
+            </select>
+          </div>
+
+          <div class="w-px h-6 bg-gray-300"></div>
+
+          <!-- Export buttons -->
+          <button
+            @click="handleExportExcel"
+            :disabled="isExporting"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-400 text-white rounded hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Excel
+          </button>
+          <button
+            @click="handleExportPdf"
+            :disabled="isExporting"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-400 text-white rounded hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            PDF
+          </button>
+
+          <div class="w-px h-6 bg-gray-300"></div>
+
+          <!-- Nieuw rapport button -->
+          <button
+            @click="clearSession"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors text-sm"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            Nieuw rapport
+          </button>
+        </div>
       </div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-4 py-8">
+    <main class="w-full px-4 py-8">
       <!-- File uploader -->
       <section v-if="!rawData" class="mb-8">
         <FileUploader @filesLoaded="handleFilesLoaded" />
@@ -373,89 +443,25 @@ async function handleExportPdf() {
 
       <!-- Resultaten -->
       <template v-if="rawData">
-        <!-- Configuratie panel -->
-        <section class="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 class="text-lg font-semibold mb-4">Configuratie</h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">
-                Urgentie horizon (dagen)
-              </label>
-              <input
-                v-model.number="urgentieHorizon"
-                type="range"
-                min="0"
-                max="30"
-                class="w-full"
-              />
-              <div class="flex justify-between text-sm text-gray-500">
-                <span>0</span>
-                <span class="font-medium text-gray-900">{{ urgentieHorizon }} dagen</span>
-                <span>30</span>
-              </div>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">
-                Buffer dagen (voorraad doel)
-              </label>
-              <input
-                v-model.number="bufferDagen"
-                type="range"
-                min="14"
-                max="120"
-                class="w-full"
-              />
-              <div class="flex justify-between text-sm text-gray-500">
-                <span>14</span>
-                <span class="font-medium text-gray-900">{{ bufferDagen }} dagen</span>
-                <span>120</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Export knoppen -->
-          <div class="mt-6 pt-6 border-t flex flex-wrap gap-3">
-            <button
-              @click="handleExportExcel"
-              :disabled="isExporting"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Export Excel
-            </button>
-            <button
-              @click="handleExportPdf"
-              :disabled="isExporting"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Export PDF
-            </button>
-            <span v-if="isExporting" class="text-sm text-gray-500 self-center">Bezig met exporteren...</span>
-          </div>
-        </section>
-
         <!-- Samenvatting -->
-        <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div class="bg-white rounded-lg shadow p-4 text-center">
-            <p class="text-3xl font-bold text-red-600">{{ urgenteProducten.length }}</p>
-            <p class="text-sm text-gray-600">Urgente producten</p>
-          </div>
-          <div class="bg-white rounded-lg shadow p-4 text-center">
-            <p class="text-3xl font-bold text-gray-600">{{ productenResults.length }}</p>
-            <p class="text-sm text-gray-600">Totaal producten</p>
-          </div>
-          <div class="bg-white rounded-lg shadow p-4 text-center">
-            <p class="text-3xl font-bold text-red-600">{{ urgenteComponenten.length }}</p>
-            <p class="text-sm text-gray-600">Urgente componenten</p>
-          </div>
-          <div class="bg-white rounded-lg shadow p-4 text-center">
-            <p class="text-3xl font-bold text-gray-600">{{ componentenResults.length }}</p>
-            <p class="text-sm text-gray-600">Totaal componenten</p>
+        <section class="flex justify-center mb-6">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl">
+            <div class="bg-white rounded-lg shadow p-4 text-center min-w-32">
+              <p class="text-3xl font-bold text-red-600">{{ urgenteProducten.length }}</p>
+              <p class="text-sm text-gray-600">Urgente producten</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4 text-center min-w-32">
+              <p class="text-3xl font-bold text-gray-600">{{ productenResults.length }}</p>
+              <p class="text-sm text-gray-600">Totaal producten</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4 text-center min-w-32">
+              <p class="text-3xl font-bold text-red-600">{{ urgenteComponenten.length }}</p>
+              <p class="text-sm text-gray-600">Urgente componenten</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4 text-center min-w-32">
+              <p class="text-3xl font-bold text-gray-600">{{ componentenResults.length }}</p>
+              <p class="text-sm text-gray-600">Totaal componenten</p>
+            </div>
           </div>
         </section>
 
@@ -529,10 +535,10 @@ async function handleExportPdf() {
 
         <!-- Producten tabel -->
         <section class="bg-white rounded-lg shadow mb-6">
-          <!-- Header container -->
-          <div class="bg-white rounded-t-lg">
+          <!-- Sticky header container -->
+          <div class="sticky top-[52px] z-30 bg-white rounded-t-lg">
             <!-- Titel -->
-            <div class="p-4 border-b border-gray-200">
+            <div class="p-3 border-b border-gray-200 bg-white">
               <h2 class="text-lg font-semibold">
                 Producten - Te bestellen
                 <span class="text-gray-500 font-normal">
@@ -543,18 +549,19 @@ async function handleExportPdf() {
             <!-- Tabel header -->
             <div class="bg-gray-100 border-b-2 border-gray-300 text-xs">
               <div class="flex">
-                <div class="px-3 py-2 font-semibold text-gray-700 w-20">Artnr</div>
-                <div class="px-3 py-2 font-semibold text-gray-700 flex-1 min-w-48">Productnaam</div>
-                <div class="px-3 py-2 font-semibold text-gray-700 w-32">Leverancier</div>
-                <div class="px-3 py-2 font-semibold text-gray-700 w-24">Groep</div>
-                <div class="px-3 py-2 font-semibold text-gray-700 w-16 text-right">Voorraad</div>
-                <div class="px-3 py-2 font-semibold text-gray-700 w-16 text-right">Verk/mnd</div>
-                <div class="px-3 py-2 font-semibold text-gray-700 w-14 text-right">Levert.</div>
-                <div class="px-3 py-2 font-semibold text-gray-700 w-14 text-right">Dagen</div>
-                <div class="px-3 py-2 font-semibold text-gray-700 w-16 text-right">Bestellen</div>
-                <div class="px-1 py-2 font-semibold text-gray-700 w-8 text-center" title="In bestelling"></div>
-                <div class="px-3 py-2 font-semibold text-gray-700 w-20 text-center">Urgentie</div>
-                <div class="px-2 py-2 font-semibold text-gray-700 w-10 text-center">Sel.</div>
+                <div class="px-2 py-2 font-semibold text-gray-700 w-24 shrink-0">Artnr</div>
+                <div class="px-2 py-2 font-semibold text-gray-700 flex-[2] min-w-48">Productnaam</div>
+                <div class="px-2 py-2 font-semibold text-gray-700 flex-1 min-w-32">Leverancier</div>
+                <div class="px-2 py-2 font-semibold text-gray-700 w-24 shrink-0">Groep</div>
+                <div class="px-2 py-2 font-semibold text-gray-700 w-20 shrink-0 text-right">Voorraad</div>
+                <div class="px-2 py-2 font-semibold text-gray-700 w-16 shrink-0 text-right">Verk/m</div>
+                <div class="px-2 py-2 font-semibold text-gray-700 w-14 shrink-0 text-right">Lev.</div>
+                <div class="px-2 py-2 font-semibold text-gray-700 w-14 shrink-0 text-right">Dagen</div>
+                <div class="px-2 py-2 font-semibold text-gray-700 w-14 shrink-0 text-right" title="Minimum bestelhoeveelheid">Min.</div>
+                <div class="px-2 py-2 font-semibold text-gray-700 w-20 shrink-0 text-right">Bestellen</div>
+                <div class="px-1 py-2 font-semibold text-gray-700 w-6 shrink-0 text-center" title="In bestelling"></div>
+                <div class="px-2 py-2 font-semibold text-gray-700 w-24 shrink-0 text-center">Urgentie</div>
+                <div class="px-1 py-2 font-semibold text-gray-700 w-8 shrink-0 text-center">Sel.</div>
               </div>
             </div>
           </div>
@@ -567,17 +574,18 @@ async function handleExportPdf() {
                 class="flex border-b border-gray-200"
                 :style="getRowStyle(product.urgentie_color)"
               >
-                <div class="px-3 py-1.5 font-mono w-20">{{ product.Artnr }}</div>
-                <div class="px-3 py-1.5 flex-1 min-w-48 truncate">{{ product.Variant_name }}</div>
-                <div class="px-3 py-1.5 text-gray-600 w-32 truncate">{{ product.Leveranciersnaam }}</div>
-                <div class="px-3 py-1.5 text-gray-600 w-24 truncate">{{ product.Productgroup }}</div>
-                <div class="px-3 py-1.5 text-right w-16">{{ formatNumber(product._currentCount) }}</div>
-                <div class="px-3 py-1.5 text-right w-16">{{ formatNumber(product._avgSalesPerMonth) }}</div>
-                <div class="px-3 py-1.5 text-right w-14">{{ product.levertermijn }} d</div>
-                <div class="px-3 py-1.5 text-right font-medium w-14">{{ formatNumber(product.days_of_stock) }}</div>
-                <div class="px-3 py-1.5 text-right font-bold w-16">{{ formatNumber(product.bestellen_stuks) }}</div>
+                <div class="px-2 py-1.5 font-mono w-24 shrink-0">{{ product.Artnr }}</div>
+                <div class="px-2 py-1.5 flex-[2] min-w-48 truncate">{{ product.Variant_name }}</div>
+                <div class="px-2 py-1.5 text-gray-600 flex-1 min-w-32 truncate">{{ product.Leveranciersnaam }}</div>
+                <div class="px-2 py-1.5 text-gray-600 w-24 shrink-0 truncate">{{ product.Productgroup }}</div>
+                <div class="px-2 py-1.5 text-right w-20 shrink-0">{{ formatNumber(product._currentCount) }}</div>
+                <div class="px-2 py-1.5 text-right w-16 shrink-0">{{ formatNumber(product._avgSalesPerMonth) }}</div>
+                <div class="px-2 py-1.5 text-right w-14 shrink-0">{{ product.levertermijn }}d</div>
+                <div class="px-2 py-1.5 text-right font-medium w-14 shrink-0">{{ formatNumber(product.days_of_stock) }}</div>
+                <div class="px-2 py-1.5 text-right text-gray-500 w-14 shrink-0">{{ product.minimum_aantal || '-' }}</div>
+                <div class="px-2 py-1.5 text-right font-bold w-20 shrink-0">{{ formatNumber(product.bestellen_stuks) }}</div>
                 <!-- Bestelling icoon -->
-                <div class="px-1 py-1.5 w-8 text-center">
+                <div class="px-1 py-1.5 w-6 shrink-0 text-center">
                   <div v-if="product.heeftBestelling" class="relative group inline-block">
                     <svg class="w-4 h-4 cursor-help" style="color: #F97316;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" title="In bestelling">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
@@ -602,22 +610,22 @@ async function handleExportPdf() {
                     </div>
                   </div>
                 </div>
-                <div class="px-3 py-1.5 text-center w-20">
-                  <span class="font-medium">{{ product.urgentie }}</span>
+                <div class="px-2 py-1.5 text-center w-24 shrink-0">
+                  <span class="font-medium text-xs">{{ product.urgentie }}</span>
                 </div>
                 <!-- Selectie checkbox -->
-                <div class="px-2 py-1.5 w-10 text-center">
+                <div class="px-1 py-1.5 w-8 shrink-0 text-center">
                   <input
                     type="checkbox"
                     :checked="selectedProducten.has(product.Artnr)"
                     @change="toggleProductSelection(product.Artnr)"
-                    class="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500 cursor-pointer"
+                    class="w-3.5 h-3.5 text-orange-500 border-gray-300 rounded focus:ring-orange-500 cursor-pointer"
                   />
                 </div>
               </div>
               <div v-if="gefilterdeProducten.length === 0" class="px-4 py-8 text-center text-gray-500">
-                <template v-if="searchProducten">
-                  Geen producten gevonden voor "{{ searchProducten }}"
+                <template v-if="searchQuery">
+                  Geen producten gevonden voor "{{ searchQuery }}"
                 </template>
                 <template v-else>
                   Geen urgente producten
@@ -629,10 +637,10 @@ async function handleExportPdf() {
 
         <!-- Componenten tabel -->
         <section class="bg-white rounded-lg shadow">
-          <!-- Header container -->
-          <div class="bg-white rounded-t-lg">
+          <!-- Sticky header container -->
+          <div class="sticky top-[52px] z-30 bg-white rounded-t-lg">
             <!-- Titel -->
-            <div class="p-4 border-b border-gray-200">
+            <div class="p-3 border-b border-gray-200 bg-white">
               <h2 class="text-lg font-semibold">
                 Componenten - Te bestellen
                 <span class="text-gray-500 font-normal">
@@ -643,19 +651,19 @@ async function handleExportPdf() {
             <!-- Tabel header -->
             <div class="bg-gray-100 border-b-2 border-gray-300 text-xs">
               <div class="flex">
-                <div class="px-3 py-2 font-semibold text-gray-700 w-20">Artnr</div>
-                <div class="px-3 py-2 font-semibold text-gray-700 w-44">Component</div>
-                <div class="px-3 py-2 font-semibold text-gray-700 w-28">Leverancier</div>
-                <div class="px-3 py-2 font-semibold text-gray-700 w-20">Groep</div>
-                <div class="px-3 py-2 font-semibold text-gray-700 w-16 text-right">Voorraad</div>
-                <div class="px-3 py-2 font-semibold text-gray-700 w-14 text-right">Vbr/dag</div>
-                <div class="px-3 py-2 font-semibold text-gray-700 w-14 text-right">Levert.</div>
-                <div class="px-3 py-2 font-semibold text-gray-700 w-14 text-right">Dagen</div>
-                <div class="px-3 py-2 font-semibold text-gray-700 w-16 text-right">Bestellen</div>
-                <div class="px-1 py-2 font-semibold text-gray-700 w-8 text-center" title="In bestelling"></div>
-                <div class="px-3 py-2 font-semibold text-gray-700 flex-1 min-w-32">Gebruikt in</div>
-                <div class="px-3 py-2 font-semibold text-gray-700 w-20 text-center">Urgentie</div>
-                <div class="px-2 py-2 font-semibold text-gray-700 w-10 text-center">Sel.</div>
+                <div class="px-2 py-2 font-semibold text-gray-700 w-24 shrink-0">Artnr</div>
+                <div class="px-2 py-2 font-semibold text-gray-700 flex-[2] min-w-48">Component</div>
+                <div class="px-2 py-2 font-semibold text-gray-700 flex-1 min-w-32">Leverancier</div>
+                <div class="px-2 py-2 font-semibold text-gray-700 w-24 shrink-0">Groep</div>
+                <div class="px-2 py-2 font-semibold text-gray-700 w-20 shrink-0 text-right">Voorraad</div>
+                <div class="px-2 py-2 font-semibold text-gray-700 w-16 shrink-0 text-right">Vbr/dag</div>
+                <div class="px-2 py-2 font-semibold text-gray-700 w-14 shrink-0 text-right">Lev.</div>
+                <div class="px-2 py-2 font-semibold text-gray-700 w-14 shrink-0 text-right">Dagen</div>
+                <div class="px-2 py-2 font-semibold text-gray-700 w-14 shrink-0 text-right" title="Minimum bestelhoeveelheid">Min.</div>
+                <div class="px-2 py-2 font-semibold text-gray-700 w-20 shrink-0 text-right">Bestellen</div>
+                <div class="px-1 py-2 font-semibold text-gray-700 w-6 shrink-0 text-center" title="In bestelling"></div>
+                <div class="px-2 py-2 font-semibold text-gray-700 w-24 shrink-0 text-center">Urgentie</div>
+                <div class="px-1 py-2 font-semibold text-gray-700 w-8 shrink-0 text-center">Sel.</div>
               </div>
             </div>
           </div>
@@ -665,87 +673,82 @@ async function handleExportPdf() {
               <div
                 v-for="component in gefilterdeComponenten"
                 :key="component.ID_Source"
-                class="flex border-b border-gray-200"
+                class="border-b border-gray-200"
                 :style="getRowStyle(component.urgentie_color)"
               >
-                <div class="px-3 py-1.5 font-mono w-20">{{ component.Artnr }}</div>
-                <div class="px-3 py-1.5 w-44 truncate">{{ component.Variant_name }}</div>
-                <div class="px-3 py-1.5 text-gray-600 w-28 truncate">{{ component.Leveranciersnaam }}</div>
-                <div class="px-3 py-1.5 text-gray-600 w-20 truncate">{{ component.Productgroup }}</div>
-                <div class="px-3 py-1.5 text-right w-16">{{ formatNumber(component._currentCount) }}</div>
-                <div class="px-3 py-1.5 text-right w-14">{{ formatNumber(component.component_per_day) }}</div>
-                <div class="px-3 py-1.5 text-right w-14">{{ component.levertermijn }} d</div>
-                <div class="px-3 py-1.5 text-right font-medium w-14">{{ formatNumber(component.days_of_stock) }}</div>
-                <div class="px-3 py-1.5 text-right font-bold w-16">{{ formatNumber(component.bestellen_stuks) }}</div>
-                <!-- Bestelling icoon -->
-                <div class="px-1 py-1.5 w-8 text-center">
-                  <div v-if="component.heeftBestelling" class="relative group inline-block">
-                    <svg class="w-4 h-4 cursor-help" style="color: #F97316;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" title="In bestelling">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-                    </svg>
-                    <!-- Hover popup -->
-                    <div class="absolute z-50 right-0 top-full mt-1 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg min-w-48 whitespace-nowrap">
-                      <div class="font-semibold text-orange-400 mb-2">In bestelling</div>
-                      <div v-for="(best, idx) in component.bestellingen" :key="idx" class="mb-1 last:mb-0">
-                        <div class="flex justify-between gap-4">
-                          <span>Aantal:</span>
-                          <span class="font-medium">{{ formatNumber(best.quantity) }}</span>
-                        </div>
-                        <div class="flex justify-between gap-4">
-                          <span>Leverdatum:</span>
-                          <span class="font-medium">{{ best.leverdatumFormatted }}</span>
-                        </div>
-                        <div v-if="idx < component.bestellingen.length - 1" class="border-t border-gray-600 my-1"></div>
-                      </div>
-                      <div v-if="component.bestellingen.length > 1" class="border-t border-gray-600 mt-2 pt-2 font-semibold">
-                        Totaal: {{ formatNumber(component.totaalBesteld) }}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="px-3 py-1.5 flex-1 min-w-32">
-                  <div class="flex flex-col gap-0.5">
-                    <div
-                      v-for="(name, idx) in parseProductNames(component.product_names).visible"
-                      :key="idx"
-                      class="truncate"
-                    >
-                      {{ name }}
-                    </div>
-                    <div
-                      v-if="parseProductNames(component.product_names).hidden.length > 0"
-                      class="relative group"
-                    >
-                      <span class="text-blue-600 cursor-pointer hover:underline">
-                        +{{ parseProductNames(component.product_names).hidden.length }} meer...
-                      </span>
-                      <div class="absolute z-50 left-0 bottom-full mb-1 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg min-w-64 max-w-sm">
-                        <div class="font-medium mb-2">Alle producten ({{ parseProductNames(component.product_names).total }}):</div>
-                        <div class="flex flex-col gap-1 max-h-48 overflow-y-auto">
-                          <div v-for="(name, idx) in parseProductNames(component.product_names).visible.concat(parseProductNames(component.product_names).hidden)" :key="idx">
-                            {{ name }}
+                <!-- Hoofdregel -->
+                <div class="flex">
+                  <div class="px-2 py-1.5 font-mono w-24 shrink-0">{{ component.Artnr }}</div>
+                  <div class="px-2 py-1.5 flex-[2] min-w-48 truncate">{{ component.Variant_name }}</div>
+                  <div class="px-2 py-1.5 text-gray-600 flex-1 min-w-32 truncate">{{ component.Leveranciersnaam }}</div>
+                  <div class="px-2 py-1.5 text-gray-600 w-24 shrink-0 truncate">{{ component.Productgroup }}</div>
+                  <div class="px-2 py-1.5 text-right w-20 shrink-0">{{ formatNumber(component._currentCount) }}</div>
+                  <div class="px-2 py-1.5 text-right w-16 shrink-0">{{ formatNumber(component.component_per_day) }}</div>
+                  <div class="px-2 py-1.5 text-right w-14 shrink-0">{{ component.levertermijn }}d</div>
+                  <div class="px-2 py-1.5 text-right font-medium w-14 shrink-0">{{ formatNumber(component.days_of_stock) }}</div>
+                  <div class="px-2 py-1.5 text-right text-gray-500 w-14 shrink-0">{{ component.minimum_aantal || '-' }}</div>
+                  <div class="px-2 py-1.5 text-right font-bold w-20 shrink-0">{{ formatNumber(component.bestellen_stuks) }}</div>
+                  <!-- Bestelling icoon -->
+                  <div class="px-1 py-1.5 w-6 shrink-0 text-center">
+                    <div v-if="component.heeftBestelling" class="relative group inline-block">
+                      <svg class="w-4 h-4 cursor-help" style="color: #F97316;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" title="In bestelling">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                      </svg>
+                      <!-- Hover popup -->
+                      <div class="absolute z-50 right-0 top-full mt-1 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg min-w-48 whitespace-nowrap">
+                        <div class="font-semibold text-orange-400 mb-2">In bestelling</div>
+                        <div v-for="(best, idx) in component.bestellingen" :key="idx" class="mb-1 last:mb-0">
+                          <div class="flex justify-between gap-4">
+                            <span>Aantal:</span>
+                            <span class="font-medium">{{ formatNumber(best.quantity) }}</span>
                           </div>
+                          <div class="flex justify-between gap-4">
+                            <span>Leverdatum:</span>
+                            <span class="font-medium">{{ best.leverdatumFormatted }}</span>
+                          </div>
+                          <div v-if="idx < component.bestellingen.length - 1" class="border-t border-gray-600 my-1"></div>
+                        </div>
+                        <div v-if="component.bestellingen.length > 1" class="border-t border-gray-600 mt-2 pt-2 font-semibold">
+                          Totaal: {{ formatNumber(component.totaalBesteld) }}
                         </div>
                       </div>
                     </div>
                   </div>
+                  <div class="px-2 py-1.5 text-center w-24 shrink-0">
+                    <span class="font-medium text-xs">{{ component.urgentie }}</span>
+                  </div>
+                  <!-- Selectie checkbox -->
+                  <div class="px-1 py-1.5 w-8 shrink-0 text-center">
+                    <input
+                      type="checkbox"
+                      :checked="selectedComponenten.has(component.Artnr)"
+                      @change="toggleComponentSelection(component.Artnr)"
+                      class="w-3.5 h-3.5 text-orange-500 border-gray-300 rounded focus:ring-orange-500 cursor-pointer"
+                    />
+                  </div>
                 </div>
-                <div class="px-3 py-1.5 text-center w-20">
-                  <span class="font-medium">{{ component.urgentie }}</span>
-                </div>
-                <!-- Selectie checkbox -->
-                <div class="px-2 py-1.5 w-10 text-center">
-                  <input
-                    type="checkbox"
-                    :checked="selectedComponenten.has(component.Artnr)"
-                    @change="toggleComponentSelection(component.Artnr)"
-                    class="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500 cursor-pointer"
-                  />
+                <!-- Subregel: Gebruikt in producten -->
+                <div v-if="component.product_names" class="px-2 pb-1.5 pt-0 relative group">
+                  <div class="text-[10px] text-gray-400 truncate pl-24">
+                    {{ component.product_names }}
+                  </div>
+                  <!-- Hover popup voor volledige lijst -->
+                  <div
+                    v-if="parseProductNames(component.product_names).total > 2"
+                    class="absolute z-50 left-24 bottom-full mb-1 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg min-w-64 max-w-md max-h-48 overflow-y-auto"
+                  >
+                    <div class="font-medium text-gray-300 mb-2">Gebruikt in {{ parseProductNames(component.product_names).total }} producten:</div>
+                    <div class="flex flex-col gap-1">
+                      <div v-for="(name, idx) in parseProductNames(component.product_names).visible.concat(parseProductNames(component.product_names).hidden)" :key="idx">
+                        {{ name }}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div v-if="gefilterdeComponenten.length === 0" class="px-4 py-8 text-center text-gray-500">
-                <template v-if="searchComponenten">
-                  Geen componenten gevonden voor "{{ searchComponenten }}"
+                <template v-if="searchQuery">
+                  Geen componenten gevonden voor "{{ searchQuery }}"
                 </template>
                 <template v-else>
                   Geen urgente componenten
@@ -755,16 +758,6 @@ async function handleExportPdf() {
           </div>
         </section>
 
-        <!-- Reset knop -->
-        <div class="mt-6 text-center">
-          <button
-            type="button"
-            @click="clearSession"
-            class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 underline"
-          >
-            Andere bestanden uploaden
-          </button>
-        </div>
       </template>
     </main>
   </div>

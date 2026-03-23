@@ -46,6 +46,17 @@ export function getUrgencyTier(daysOfStock, levertermijn) {
 }
 
 /**
+ * Rond bestelhoeveelheid af naar boven op veelvoud van minimum
+ * @param {number} amount - Te bestellen aantal
+ * @param {number} minimum - Minimum bestelhoeveelheid
+ * @returns {number} - Afgerond aantal
+ */
+function roundToMinimum(amount, minimum) {
+  if (!minimum || minimum <= 0 || amount <= 0) return amount
+  return Math.ceil(amount / minimum) * minimum
+}
+
+/**
  * Bereken product urgentie data
  * @param {Array} producten - Ruwe productdata uit Excel
  * @param {number} urgentieHorizon - Dagen horizon voor urgentie (default 14)
@@ -56,6 +67,7 @@ export function calculateProductUrgency(producten, urgentieHorizon = 14, bufferD
     const currentCount = Number(product._currentCount) || 0
     const avgSalesPerMonth = Number(product._avgSalesPerMonth) || 0
     const levertermijn = Number(product[COLUMN_MAP.levertermijn]) || 0
+    const minimumAantal = Number(getColumnValue(product, 'Voorraad_Minimum_Aantal')) || 0
 
     // Bereken verkoop per dag
     const salesPerDay = avgSalesPerMonth / 30
@@ -68,8 +80,11 @@ export function calculateProductUrgency(producten, urgentieHorizon = 14, bufferD
     // Bepaal of urgent
     const isUrgent = daysOfStock <= (levertermijn + urgentieHorizon)
 
-    // Bereken te bestellen stuks
-    const bestellenStuks = Math.max(0, Math.round(salesPerDay * bufferDagen - currentCount))
+    // Bereken te bestellen stuks (basis)
+    const bestellenBasis = Math.max(0, Math.round(salesPerDay * bufferDagen - currentCount))
+
+    // Rond af naar veelvoud van minimum bestelhoeveelheid
+    const bestellenStuks = roundToMinimum(bestellenBasis, minimumAantal)
 
     // Bepaal urgentie tier
     const urgency = isUrgent ? getUrgencyTier(daysOfStock, levertermijn) : { label: '', color: '', priority: 4 }
@@ -83,6 +98,7 @@ export function calculateProductUrgency(producten, urgentieHorizon = 14, bufferD
       _currentCount: currentCount,
       _avgSalesPerMonth: avgSalesPerMonth,
       levertermijn: levertermijn,
+      minimum_aantal: minimumAantal,
       sales_per_day: salesPerDay,
       days_of_stock: daysOfStock,
       bestellen_stuks: bestellenStuks,
@@ -122,6 +138,7 @@ export function calculateComponentUrgency(componenten, producten, joins, urgenti
   return componenten.map(component => {
     const currentCount = Number(component._currentCount) || 0
     const levertermijn = Number(component[COLUMN_MAP.levertermijn]) || 0
+    const minimumAantal = Number(getColumnValue(component, 'Voorraad_Minimum_Aantal')) || 0
 
     // Verzamel alle joins voor dit component
     const relatedJoins = componentJoins.get(component.ID_Source) || []
@@ -147,8 +164,11 @@ export function calculateComponentUrgency(componenten, producten, joins, urgenti
     // Bepaal of urgent
     const isUrgent = daysOfStock <= (levertermijn + urgentieHorizon)
 
-    // Bereken te bestellen stuks
-    const bestellenStuks = Math.max(0, Math.round(componentPerDay * bufferDagen - currentCount))
+    // Bereken te bestellen stuks (basis)
+    const bestellenBasis = Math.max(0, Math.round(componentPerDay * bufferDagen - currentCount))
+
+    // Rond af naar veelvoud van minimum bestelhoeveelheid
+    const bestellenStuks = roundToMinimum(bestellenBasis, minimumAantal)
 
     // Bepaal urgentie tier
     const urgency = isUrgent ? getUrgencyTier(daysOfStock, levertermijn) : { label: '', color: '', priority: 4 }
@@ -162,6 +182,7 @@ export function calculateComponentUrgency(componenten, producten, joins, urgenti
       _currentCount: currentCount,
       component_per_day: componentPerDay,
       levertermijn: levertermijn,
+      minimum_aantal: minimumAantal,
       days_of_stock: daysOfStock,
       bestellen_stuks: bestellenStuks,
       product_names: productNames.join(', '),
