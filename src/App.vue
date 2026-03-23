@@ -10,13 +10,11 @@ const STORAGE_KEY = 'vitalize-besteladvies-sessie-v2'
 const urgentieHorizon = ref(14)
 const bufferDagen = ref(60)
 
-// Zoekfilters
-const searchProducten = ref('')
-const searchComponenten = ref('')
+// Globale zoekfilter (voor beide tabellen)
+const searchQuery = ref('')
 
-// Leverancier filters
-const filterLeverancierProducten = ref('')
-const filterLeverancierComponenten = ref('')
+// Globale leverancier filter (voor beide tabellen)
+const filterLeverancier = ref('')
 
 // Selectie voor bestellen (Set van Artnr)
 const selectedProducten = ref(new Set())
@@ -104,32 +102,28 @@ const urgenteComponenten = computed(() => {
   return sortByUrgency(filterUrgent(componentenResults.value))
 })
 
-// Unieke leveranciers voor filter dropdowns
-const leveranciersProducten = computed(() => {
-  const names = urgenteProducten.value
+// Unieke leveranciers uit beide datasets
+const alleLeveranciers = computed(() => {
+  const productLeveranciers = urgenteProducten.value
     .map(p => p.Leveranciersnaam)
     .filter(name => name && name.trim())
-  return [...new Set(names)].sort()
-})
-
-const leveranciersComponenten = computed(() => {
-  const names = urgenteComponenten.value
+  const componentLeveranciers = urgenteComponenten.value
     .map(c => c.Leveranciersnaam)
     .filter(name => name && name.trim())
-  return [...new Set(names)].sort()
+  return [...new Set([...productLeveranciers, ...componentLeveranciers])].sort()
 })
 
-// Gefilterde items op basis van zoekterm en leverancier
+// Gefilterde items op basis van globale zoekterm en leverancier
 const gefilterdeProducten = computed(() => {
   let result = urgenteProducten.value
 
   // Filter op leverancier
-  if (filterLeverancierProducten.value) {
-    result = result.filter(p => p.Leveranciersnaam === filterLeverancierProducten.value)
+  if (filterLeverancier.value) {
+    result = result.filter(p => p.Leveranciersnaam === filterLeverancier.value)
   }
 
   // Filter op zoekterm
-  const query = searchProducten.value.toLowerCase().trim()
+  const query = searchQuery.value.toLowerCase().trim()
   if (query) {
     result = result.filter(p =>
       p.Artnr?.toLowerCase().includes(query) ||
@@ -147,12 +141,12 @@ const gefilterdeComponenten = computed(() => {
   let result = urgenteComponenten.value
 
   // Filter op leverancier
-  if (filterLeverancierComponenten.value) {
-    result = result.filter(c => c.Leveranciersnaam === filterLeverancierComponenten.value)
+  if (filterLeverancier.value) {
+    result = result.filter(c => c.Leveranciersnaam === filterLeverancier.value)
   }
 
   // Filter op zoekterm
-  const query = searchComponenten.value.toLowerCase().trim()
+  const query = searchQuery.value.toLowerCase().trim()
   if (query) {
     result = result.filter(c =>
       c.Artnr?.toLowerCase().includes(query) ||
@@ -465,80 +459,86 @@ async function handleExportPdf() {
           </div>
         </section>
 
-        <!-- Legenda -->
-        <section class="bg-white rounded-lg shadow p-4 mb-6">
-          <h3 class="text-sm font-medium text-gray-700 mb-2">Legenda:</h3>
-          <div class="flex flex-wrap gap-4 text-sm">
-            <span class="px-3 py-1 rounded" style="background-color: #FADBD8">DIRECT</span>
-            <span class="px-3 py-1 rounded" style="background-color: #FDEBD0">DEZE WEEK</span>
-            <span class="px-3 py-1 rounded" style="background-color: #FEF9E7">BINNEN 2 WKN</span>
-            <span class="px-3 py-1 rounded bg-gray-100 flex items-center gap-1">
-              <svg class="w-4 h-4" style="color: #F97316;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-              </svg>
-              In bestelling
-            </span>
+        <!-- Sticky filter/zoek/bestel balk -->
+        <section class="sticky top-0 z-40 bg-white rounded-lg shadow p-4 mb-6">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <!-- Legenda -->
+            <div class="flex flex-wrap items-center gap-3 text-sm">
+              <span class="px-2 py-1 rounded text-xs" style="background-color: #FADBD8">DIRECT</span>
+              <span class="px-2 py-1 rounded text-xs" style="background-color: #FDEBD0">DEZE WEEK</span>
+              <span class="px-2 py-1 rounded text-xs" style="background-color: #FEF9E7">BINNEN 2 WKN</span>
+              <span class="px-2 py-1 rounded bg-gray-100 flex items-center gap-1 text-xs">
+                <svg class="w-3 h-3" style="color: #F97316;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                </svg>
+                Besteld
+              </span>
+            </div>
+
+            <!-- Filter, zoek en bestel controls -->
+            <div class="flex items-center gap-2">
+              <!-- Leverancier filter -->
+              <select
+                v-model="filterLeverancier"
+                class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              >
+                <option value="">Alle leveranciers</option>
+                <option v-for="lev in alleLeveranciers" :key="lev" :value="lev">
+                  {{ lev }}
+                </option>
+              </select>
+
+              <!-- Zoeken -->
+              <div class="relative">
+                <input
+                  v-model="searchQuery"
+                  type="text"
+                  placeholder="Zoeken..."
+                  class="w-full sm:w-48 pl-9 pr-8 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <svg class="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <button
+                  v-if="searchQuery"
+                  @click="searchQuery = ''"
+                  class="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                >
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Bestellen button -->
+              <button
+                @click="handleBestellen"
+                :disabled="totalSelected === 0"
+                :class="[
+                  'px-4 py-2 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap',
+                  totalSelected > 0
+                    ? 'bg-orange-500 hover:bg-orange-600 text-white cursor-pointer'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                ]"
+              >
+                BESTELLEN{{ totalSelected > 0 ? ` (${totalSelected})` : '' }}
+              </button>
+            </div>
           </div>
         </section>
 
         <!-- Producten tabel -->
         <section class="bg-white rounded-lg shadow mb-6">
-          <!-- Sticky header container -->
-          <div class="sticky top-0 z-30 bg-white rounded-t-lg">
-            <!-- Titel en filters -->
-            <div class="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-gray-200">
+          <!-- Header container -->
+          <div class="bg-white rounded-t-lg">
+            <!-- Titel -->
+            <div class="p-4 border-b border-gray-200">
               <h2 class="text-lg font-semibold">
                 Producten - Te bestellen
                 <span class="text-gray-500 font-normal">
-                  ({{ gefilterdeProducten.length }}<span v-if="searchProducten || filterLeverancierProducten"> van {{ urgenteProducten.length }}</span>)
+                  ({{ gefilterdeProducten.length }}<span v-if="searchQuery || filterLeverancier"> van {{ urgenteProducten.length }}</span>)
                 </span>
               </h2>
-              <div class="flex items-center gap-2">
-                <!-- Leverancier filter -->
-                <select
-                  v-model="filterLeverancierProducten"
-                  class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                >
-                  <option value="">Alle leveranciers</option>
-                  <option v-for="lev in leveranciersProducten" :key="lev" :value="lev">
-                    {{ lev }}
-                  </option>
-                </select>
-                <!-- Zoeken -->
-                <div class="relative">
-                  <input
-                    v-model="searchProducten"
-                    type="text"
-                    placeholder="Zoeken..."
-                    class="w-full sm:w-48 pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <svg class="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  <button
-                    v-if="searchProducten"
-                    @click="searchProducten = ''"
-                    class="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
-                  >
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-                <!-- Bestellen button -->
-                <button
-                  @click="handleBestellen"
-                  :disabled="totalSelected === 0"
-                  :class="[
-                    'px-4 py-2 rounded-lg text-sm font-semibold transition-colors',
-                    totalSelected > 0
-                      ? 'bg-orange-500 hover:bg-orange-600 text-white cursor-pointer'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  ]"
-                >
-                  BESTELLEN{{ totalSelected > 0 ? ` (${totalSelected})` : '' }}
-                </button>
-              </div>
             </div>
             <!-- Tabel header -->
             <div class="bg-gray-100 border-b-2 border-gray-300 text-xs">
@@ -629,62 +629,16 @@ async function handleExportPdf() {
 
         <!-- Componenten tabel -->
         <section class="bg-white rounded-lg shadow">
-          <!-- Sticky header container -->
-          <div class="sticky top-0 z-30 bg-white rounded-t-lg">
-            <!-- Titel en filters -->
-            <div class="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-gray-200">
+          <!-- Header container -->
+          <div class="bg-white rounded-t-lg">
+            <!-- Titel -->
+            <div class="p-4 border-b border-gray-200">
               <h2 class="text-lg font-semibold">
                 Componenten - Te bestellen
                 <span class="text-gray-500 font-normal">
-                  ({{ gefilterdeComponenten.length }}<span v-if="searchComponenten || filterLeverancierComponenten"> van {{ urgenteComponenten.length }}</span>)
+                  ({{ gefilterdeComponenten.length }}<span v-if="searchQuery || filterLeverancier"> van {{ urgenteComponenten.length }}</span>)
                 </span>
               </h2>
-              <div class="flex items-center gap-2">
-                <!-- Leverancier filter -->
-                <select
-                  v-model="filterLeverancierComponenten"
-                  class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                >
-                  <option value="">Alle leveranciers</option>
-                  <option v-for="lev in leveranciersComponenten" :key="lev" :value="lev">
-                    {{ lev }}
-                  </option>
-                </select>
-                <!-- Zoeken -->
-                <div class="relative">
-                  <input
-                    v-model="searchComponenten"
-                    type="text"
-                    placeholder="Zoeken..."
-                    class="w-full sm:w-48 pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <svg class="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  <button
-                    v-if="searchComponenten"
-                    @click="searchComponenten = ''"
-                    class="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
-                  >
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-                <!-- Bestellen button -->
-                <button
-                  @click="handleBestellen"
-                  :disabled="totalSelected === 0"
-                  :class="[
-                    'px-4 py-2 rounded-lg text-sm font-semibold transition-colors',
-                    totalSelected > 0
-                      ? 'bg-orange-500 hover:bg-orange-600 text-white cursor-pointer'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  ]"
-                >
-                  BESTELLEN{{ totalSelected > 0 ? ` (${totalSelected})` : '' }}
-                </button>
-              </div>
             </div>
             <!-- Tabel header -->
             <div class="bg-gray-100 border-b-2 border-gray-300 text-xs">
