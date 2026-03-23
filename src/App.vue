@@ -392,8 +392,8 @@ async function handleExportPdf() {
             <span class="px-3 py-1 rounded" style="background-color: #FDEBD0">DEZE WEEK</span>
             <span class="px-3 py-1 rounded" style="background-color: #FEF9E7">BINNEN 2 WKN</span>
             <span class="px-3 py-1 rounded bg-gray-100 flex items-center gap-1">
-              <svg class="w-4 h-4" style="color: #F97316;" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M20 3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H4V8h16v11zm-2-9H6v2h12v-2zm-4 4H6v2h8v-2z"/>
+              <svg class="w-4 h-4" style="color: #F97316;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
               </svg>
               In bestelling
             </span>
@@ -484,8 +484,8 @@ async function handleExportPdf() {
                 <!-- Bestelling icoon -->
                 <div class="px-1 py-1.5 w-8 text-center">
                   <div v-if="product.heeftBestelling" class="relative group inline-block">
-                    <svg class="w-4 h-4 cursor-help" style="color: #F97316;" fill="currentColor" viewBox="0 0 24 24" title="In bestelling">
-                      <path d="M20 3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H4V8h16v11zm-2-9H6v2h12v-2zm-4 4H6v2h8v-2z"/>
+                    <svg class="w-4 h-4 cursor-help" style="color: #F97316;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" title="In bestelling">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
                     </svg>
                     <!-- Hover popup -->
                     <div class="absolute z-50 right-0 top-full mt-1 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg min-w-48 whitespace-nowrap">
@@ -608,8 +608,8 @@ async function handleExportPdf() {
                 <!-- Bestelling icoon -->
                 <div class="px-1 py-1.5 w-8 text-center">
                   <div v-if="component.heeftBestelling" class="relative group inline-block">
-                    <svg class="w-4 h-4 cursor-help" style="color: #F97316;" fill="currentColor" viewBox="0 0 24 24" title="In bestelling">
-                      <path d="M20 3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H4V8h16v11zm-2-9H6v2h12v-2zm-4 4H6v2h8v-2z"/>
+                    <svg class="w-4 h-4 cursor-help" style="color: #F97316;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" title="In bestelling">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
                     </svg>
                     <!-- Hover popup -->
                     <div class="absolute z-50 right-0 top-full mt-1 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg min-w-48 whitespace-nowrap">
