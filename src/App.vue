@@ -62,16 +62,29 @@ function handleBestellen() {
   // Maak JSON parameter
   const parameter = JSON.stringify({ artikelen })
 
-  // Roep FileMaker script aan
-  if (typeof FileMaker !== 'undefined' && FileMaker.PerformScript) {
-    FileMaker.PerformScript('BESTELLING | from report', parameter)
-    // Reset selecties na bestellen
-    selectedProducten.value = new Set()
-    selectedComponenten.value = new Set()
-  } else {
-    // Fallback voor development/testing buiten FileMaker
-    console.log('FileMaker script aanroep:', 'BESTELLING | from report', parameter)
-    alert('FileMaker niet beschikbaar.\n\nParameter zou zijn:\n' + parameter)
+  // Debug logging
+  console.log('handleBestellen aangeroepen')
+  console.log('Parameter:', parameter)
+  console.log('window.FileMaker:', window.FileMaker)
+
+  // Roep FileMaker script aan via window object
+  try {
+    if (window.FileMaker && typeof window.FileMaker.PerformScript === 'function') {
+      console.log('FileMaker.PerformScript wordt aangeroepen...')
+      window.FileMaker.PerformScript('BESTELLING | from report', parameter)
+      console.log('FileMaker.PerformScript aangeroepen')
+      // Reset selecties na bestellen
+      selectedProducten.value = new Set()
+      selectedComponenten.value = new Set()
+    } else {
+      // Fallback voor development/testing buiten FileMaker
+      console.warn('FileMaker object niet beschikbaar op window')
+      console.log('window keys:', Object.keys(window).filter(k => k.toLowerCase().includes('file')))
+      alert('FileMaker niet beschikbaar.\n\nZorg dat "Allow JavaScript to perform FileMaker scripts" is ingeschakeld in de Web Viewer instellingen.\n\nParameter zou zijn:\n' + parameter)
+    }
+  } catch (error) {
+    console.error('Fout bij FileMaker script aanroep:', error)
+    alert('Fout bij aanroepen FileMaker script:\n' + error.message)
   }
 }
 
@@ -269,6 +282,17 @@ function clearSession() {
 }
 
 onMounted(() => {
+  // Check FileMaker beschikbaarheid bij laden
+  console.log('=== FileMaker Web Viewer Check ===')
+  console.log('window.FileMaker:', window.FileMaker)
+  if (window.FileMaker) {
+    console.log('FileMaker.PerformScript:', typeof window.FileMaker.PerformScript)
+    console.log('FileMaker.PerformScriptWithOption:', typeof window.FileMaker.PerformScriptWithOption)
+  } else {
+    console.log('FileMaker object NIET gevonden - draait buiten FileMaker WebViewer of "Allow JavaScript to perform FileMaker scripts" is niet ingeschakeld')
+  }
+  console.log('=================================')
+
   loadPersistedState()
 })
 
