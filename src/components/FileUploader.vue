@@ -120,10 +120,37 @@ function getStatusClass(status) {
     default: return 'text-gray-400 bg-gray-50'
   }
 }
+
+// Roep FileMaker script aan voor export
+function handleExportFiles() {
+  try {
+    if (window.FileMaker && typeof window.FileMaker.PerformScript === 'function') {
+      window.FileMaker.PerformScript('Export_for_report', '')
+    } else {
+      alert('FileMaker niet beschikbaar.\n\nZorg dat "Allow JavaScript to perform FileMaker scripts" is ingeschakeld in de Web Viewer instellingen.')
+    }
+  } catch (error) {
+    console.error('Fout bij FileMaker script aanroep:', error)
+    alert('Fout bij aanroepen FileMaker script:\n' + error.message)
+  }
+}
 </script>
 
 <template>
   <div class="w-full max-w-2xl mx-auto">
+    <!-- Stap 1: Export button -->
+    <div class="text-center mb-6">
+      <button
+        @click="handleExportFiles"
+        class="inline-flex items-center gap-2 px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-lg font-medium shadow-md"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+        Stap 1: Exporteer bestanden
+      </button>
+    </div>
+
     <!-- Drop zone -->
     <div
       @drop="handleDrop"
@@ -145,7 +172,7 @@ function getStatusClass(status) {
       <label for="file-input" class="cursor-pointer">
         <div class="text-4xl mb-4">📁</div>
         <p class="text-lg font-medium text-gray-700">
-          Sleep hier 4 Excel bestanden naartoe
+          Stap 2: Sleep hier 4 Excel bestanden naartoe
         </p>
         <p class="text-sm text-gray-500 mt-2">
           of klik om te selecteren
