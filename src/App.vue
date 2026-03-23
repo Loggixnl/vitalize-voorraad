@@ -392,7 +392,10 @@ async function handleExportPdf() {
             <span class="px-3 py-1 rounded" style="background-color: #FDEBD0">DEZE WEEK</span>
             <span class="px-3 py-1 rounded" style="background-color: #FEF9E7">BINNEN 2 WKN</span>
             <span class="px-3 py-1 rounded bg-gray-100 flex items-center gap-1">
-              <span class="text-orange-500">🚩</span> In bestelling
+              <svg class="w-4 h-4" style="color: #F97316;" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20 3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H4V8h16v11zm-2-9H6v2h12v-2zm-4 4H6v2h8v-2z"/>
+              </svg>
+              In bestelling
             </span>
           </div>
         </section>
@@ -446,7 +449,6 @@ async function handleExportPdf() {
             <!-- Tabel header -->
             <div class="bg-gray-100 border-b-2 border-gray-300 text-xs">
               <div class="flex">
-                <div class="px-1 py-2 font-semibold text-gray-700 w-8 text-center" title="In bestelling"></div>
                 <div class="px-3 py-2 font-semibold text-gray-700 w-20">Artnr</div>
                 <div class="px-3 py-2 font-semibold text-gray-700 flex-1 min-w-48">Productnaam</div>
                 <div class="px-3 py-2 font-semibold text-gray-700 w-32">Leverancier</div>
@@ -456,6 +458,7 @@ async function handleExportPdf() {
                 <div class="px-3 py-2 font-semibold text-gray-700 w-14 text-right">Levert.</div>
                 <div class="px-3 py-2 font-semibold text-gray-700 w-14 text-right">Dagen</div>
                 <div class="px-3 py-2 font-semibold text-gray-700 w-16 text-right">Bestellen</div>
+                <div class="px-1 py-2 font-semibold text-gray-700 w-8 text-center" title="In bestelling"></div>
                 <div class="px-3 py-2 font-semibold text-gray-700 w-20 text-center">Urgentie</div>
               </div>
             </div>
@@ -469,12 +472,23 @@ async function handleExportPdf() {
                 class="flex border-b border-gray-200"
                 :style="getRowStyle(product.urgentie_color)"
               >
-                <!-- Bestelling vlag -->
+                <div class="px-3 py-1.5 font-mono w-20">{{ product.Artnr }}</div>
+                <div class="px-3 py-1.5 flex-1 min-w-48 truncate">{{ product.Variant_name }}</div>
+                <div class="px-3 py-1.5 text-gray-600 w-32 truncate">{{ product.Leveranciersnaam }}</div>
+                <div class="px-3 py-1.5 text-gray-600 w-24 truncate">{{ product.Productgroup }}</div>
+                <div class="px-3 py-1.5 text-right w-16">{{ formatNumber(product._currentCount) }}</div>
+                <div class="px-3 py-1.5 text-right w-16">{{ formatNumber(product._avgSalesPerMonth) }}</div>
+                <div class="px-3 py-1.5 text-right w-14">{{ product.levertermijn }} d</div>
+                <div class="px-3 py-1.5 text-right font-medium w-14">{{ formatNumber(product.days_of_stock) }}</div>
+                <div class="px-3 py-1.5 text-right font-bold w-16">{{ formatNumber(product.bestellen_stuks) }}</div>
+                <!-- Bestelling icoon -->
                 <div class="px-1 py-1.5 w-8 text-center">
                   <div v-if="product.heeftBestelling" class="relative group inline-block">
-                    <span class="text-orange-500 cursor-help" title="In bestelling">🚩</span>
+                    <svg class="w-4 h-4 cursor-help" style="color: #F97316;" fill="currentColor" viewBox="0 0 24 24" title="In bestelling">
+                      <path d="M20 3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H4V8h16v11zm-2-9H6v2h12v-2zm-4 4H6v2h8v-2z"/>
+                    </svg>
                     <!-- Hover popup -->
-                    <div class="absolute z-50 left-full ml-2 top-0 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg min-w-48 whitespace-nowrap">
+                    <div class="absolute z-50 right-0 top-full mt-1 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg min-w-48 whitespace-nowrap">
                       <div class="font-semibold text-orange-400 mb-2">In bestelling</div>
                       <div v-for="(best, idx) in product.bestellingen" :key="idx" class="mb-1 last:mb-0">
                         <div class="flex justify-between gap-4">
@@ -493,15 +507,6 @@ async function handleExportPdf() {
                     </div>
                   </div>
                 </div>
-                <div class="px-3 py-1.5 font-mono w-20">{{ product.Artnr }}</div>
-                <div class="px-3 py-1.5 flex-1 min-w-48 truncate">{{ product.Variant_name }}</div>
-                <div class="px-3 py-1.5 text-gray-600 w-32 truncate">{{ product.Leveranciersnaam }}</div>
-                <div class="px-3 py-1.5 text-gray-600 w-24 truncate">{{ product.Productgroup }}</div>
-                <div class="px-3 py-1.5 text-right w-16">{{ formatNumber(product._currentCount) }}</div>
-                <div class="px-3 py-1.5 text-right w-16">{{ formatNumber(product._avgSalesPerMonth) }}</div>
-                <div class="px-3 py-1.5 text-right w-14">{{ product.levertermijn }} d</div>
-                <div class="px-3 py-1.5 text-right font-medium w-14">{{ formatNumber(product.days_of_stock) }}</div>
-                <div class="px-3 py-1.5 text-right font-bold w-16">{{ formatNumber(product.bestellen_stuks) }}</div>
                 <div class="px-3 py-1.5 text-center w-20">
                   <span class="font-medium">{{ product.urgentie }}</span>
                 </div>
@@ -567,7 +572,6 @@ async function handleExportPdf() {
             <!-- Tabel header -->
             <div class="bg-gray-100 border-b-2 border-gray-300 text-xs">
               <div class="flex">
-                <div class="px-1 py-2 font-semibold text-gray-700 w-8 text-center" title="In bestelling"></div>
                 <div class="px-3 py-2 font-semibold text-gray-700 w-20">Artnr</div>
                 <div class="px-3 py-2 font-semibold text-gray-700 w-44">Component</div>
                 <div class="px-3 py-2 font-semibold text-gray-700 w-28">Leverancier</div>
@@ -577,6 +581,7 @@ async function handleExportPdf() {
                 <div class="px-3 py-2 font-semibold text-gray-700 w-14 text-right">Levert.</div>
                 <div class="px-3 py-2 font-semibold text-gray-700 w-14 text-right">Dagen</div>
                 <div class="px-3 py-2 font-semibold text-gray-700 w-16 text-right">Bestellen</div>
+                <div class="px-1 py-2 font-semibold text-gray-700 w-8 text-center" title="In bestelling"></div>
                 <div class="px-3 py-2 font-semibold text-gray-700 flex-1 min-w-32">Gebruikt in</div>
                 <div class="px-3 py-2 font-semibold text-gray-700 w-20 text-center">Urgentie</div>
               </div>
@@ -591,12 +596,23 @@ async function handleExportPdf() {
                 class="flex border-b border-gray-200"
                 :style="getRowStyle(component.urgentie_color)"
               >
-                <!-- Bestelling vlag -->
+                <div class="px-3 py-1.5 font-mono w-20">{{ component.Artnr }}</div>
+                <div class="px-3 py-1.5 w-44 truncate">{{ component.Variant_name }}</div>
+                <div class="px-3 py-1.5 text-gray-600 w-28 truncate">{{ component.Leveranciersnaam }}</div>
+                <div class="px-3 py-1.5 text-gray-600 w-20 truncate">{{ component.Productgroup }}</div>
+                <div class="px-3 py-1.5 text-right w-16">{{ formatNumber(component._currentCount) }}</div>
+                <div class="px-3 py-1.5 text-right w-14">{{ formatNumber(component.component_per_day) }}</div>
+                <div class="px-3 py-1.5 text-right w-14">{{ component.levertermijn }} d</div>
+                <div class="px-3 py-1.5 text-right font-medium w-14">{{ formatNumber(component.days_of_stock) }}</div>
+                <div class="px-3 py-1.5 text-right font-bold w-16">{{ formatNumber(component.bestellen_stuks) }}</div>
+                <!-- Bestelling icoon -->
                 <div class="px-1 py-1.5 w-8 text-center">
                   <div v-if="component.heeftBestelling" class="relative group inline-block">
-                    <span class="text-orange-500 cursor-help" title="In bestelling">🚩</span>
+                    <svg class="w-4 h-4 cursor-help" style="color: #F97316;" fill="currentColor" viewBox="0 0 24 24" title="In bestelling">
+                      <path d="M20 3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H4V8h16v11zm-2-9H6v2h12v-2zm-4 4H6v2h8v-2z"/>
+                    </svg>
                     <!-- Hover popup -->
-                    <div class="absolute z-50 left-full ml-2 top-0 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg min-w-48 whitespace-nowrap">
+                    <div class="absolute z-50 right-0 top-full mt-1 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg min-w-48 whitespace-nowrap">
                       <div class="font-semibold text-orange-400 mb-2">In bestelling</div>
                       <div v-for="(best, idx) in component.bestellingen" :key="idx" class="mb-1 last:mb-0">
                         <div class="flex justify-between gap-4">
@@ -615,15 +631,6 @@ async function handleExportPdf() {
                     </div>
                   </div>
                 </div>
-                <div class="px-3 py-1.5 font-mono w-20">{{ component.Artnr }}</div>
-                <div class="px-3 py-1.5 w-44 truncate">{{ component.Variant_name }}</div>
-                <div class="px-3 py-1.5 text-gray-600 w-28 truncate">{{ component.Leveranciersnaam }}</div>
-                <div class="px-3 py-1.5 text-gray-600 w-20 truncate">{{ component.Productgroup }}</div>
-                <div class="px-3 py-1.5 text-right w-16">{{ formatNumber(component._currentCount) }}</div>
-                <div class="px-3 py-1.5 text-right w-14">{{ formatNumber(component.component_per_day) }}</div>
-                <div class="px-3 py-1.5 text-right w-14">{{ component.levertermijn }} d</div>
-                <div class="px-3 py-1.5 text-right font-medium w-14">{{ formatNumber(component.days_of_stock) }}</div>
-                <div class="px-3 py-1.5 text-right font-bold w-16">{{ formatNumber(component.bestellen_stuks) }}</div>
                 <div class="px-3 py-1.5 flex-1 min-w-32">
                   <div class="flex flex-col gap-0.5">
                     <div
